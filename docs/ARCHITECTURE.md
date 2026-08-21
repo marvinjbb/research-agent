@@ -65,5 +65,23 @@ nonblank content, and unique focused task text. Provider configuration comes fro
 environment variables. Provider failure, timeout, and missing configuration have distinct
 HTTP responses.
 
-No plan is treated as research output. Assignments are instructions for a later phase;
-they are not executed by this service yet.
+No plan is treated as research output. Phase 3A can execute one supplied assignment, but
+the full assignment set is not orchestrated by this service yet.
+
+## Phase 3A single-worker boundary
+
+```text
+WorkerAssignment
+  → SingleResearchWorker
+  → SearchProvider interface (at most 2 sequential searches)
+  → normalized SearchSource records (at most 10 unique URLs)
+  → WorkerResearchProvider interface
+  → validated WorkerResult
+```
+
+The worker and search adapter are separate application layers. No provider SDK belongs in
+`SingleResearchWorker`. Every `WorkerClaim` requires evidence, and every evidence reference
+must match a source included in the result. Evidence text must also be a verbatim excerpt
+from that source's normalized snippet. The application preserves the assignment's worker
+ID and rejects unknown citations. The Tavily adapter uses Basic Search and normalizes
+provider responses behind `SearchProvider`; no Tavily code belongs in worker logic.

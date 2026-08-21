@@ -10,25 +10,31 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - pytest and Ruff
 - Architecture and decision documentation
 
-## Phase 2 — Planning contracts and adapter (current)
+## Phase 2 — Planning contracts and adapter (complete)
 
 - Define the validated research-plan and worker-assignment contracts
 - Add the provider-neutral planner interface and OpenAI Structured Outputs adapter
 - Add `POST /research/plan` with controlled configuration/provider errors
 - Test planning schema invariants and provider boundaries without paid calls
 
-## Phase 3 — Worker execution skeleton
+## Phase 3A — One bounded research worker (complete)
+
+- Accept one assignment produced by Phase 2
+- Define separate search and worker-analysis provider boundaries
+- Integrate bounded Tavily Basic Search and OpenAI Structured Outputs adapters
+- Enforce source-grounded claims in a structured worker result
+- Use a fixed sequential search limit and deterministic test doubles
+
+## Phase 3B — Bounded worker orchestration (deferred)
 
 - Consume the validated 2–5 assignments produced by Phase 2
 - Execute bounded concurrent worker tasks
-- Add timeouts, cancellation, retries, and partial-failure behavior
-- Use deterministic test doubles before real providers
+- Add cancellation, retries, and partial-failure behavior
 
-## Phase 4 — Search and model integration
+## Phase 4 — Provider and source-quality hardening
 
-- Evaluate and select search and LLM providers
-- Retrieve sources and produce structured evidence
-- Add source-grounding and citation checks
+- Improve source-quality selection and document-level deduplication
+- Evaluate richer source retrieval only if snippets prove insufficient
 - Add cost, timeout, and abuse controls
 
 ## Phase 5 — Analysis and evaluation

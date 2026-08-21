@@ -5,6 +5,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    HttpUrl,
     StringConstraints,
     field_validator,
     model_validator,
@@ -76,6 +77,107 @@ class ResearchPlan(BaseModel):
         ]
         if len(normalized_tasks) != len(set(normalized_tasks)):
             raise ValueError("focused research tasks must be unique")
+
+        return self
+
+
+class SearchSource(BaseModel):
+    """Normalized source returned by an application-owned search provider."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    title: Annotated[NonBlankText, StringConstraints(max_length=500)]
+    url: HttpUrl
+    snippet: Annotated[NonBlankText, StringConstraints(max_length=2_000)]
+    publisher: Annotated[NonBlankText, StringConstraints(max_length=300)] | None = None
+
+
+class ClaimEvidence(BaseModel):
+    """A traceable piece of source evidence supporting one claim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    evidence: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+
+    @field_validator("evidence", mode="before")
+    @classmethod
+    def remove_matching_outer_quotes(cls, value: object) -> object:
+        if not isinstance(value, str) or len(value) < 2:
+            return value
+
+        matching_quotes = {'"': '"', "'": "'", "“": "”", "‘": "’"}
+        if matching_quotes.get(value[0]) == value[-1]:
+            return value[1:-1]
+        return value
+
+
+class WorkerClaim(BaseModel):
+    """A factual finding that must include at least one source reference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    evidence: list[ClaimEvidence] = Field(min_length=1, max_length=8)
+
+
+class WorkerAnalysis(BaseModel):
+    """Structured LLM analysis built only from supplied search sources."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claims: list[WorkerClaim] = Field(min_length=1, max_length=12)
+    uncertainties: list[
+        Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    ] = Field(min_length=1, max_length=8)
+
+
+class WorkerResult(BaseModel):
+    """Validated result for exactly one research worker assignment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    worker_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    assignment: WorkerAssignment
+    claims: list[WorkerClaim] = Field(min_length=1, max_length=12)
+    sources: list[SearchSource] = Field(min_length=1, max_length=10)
+    uncertainties: list[
+        Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    ] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_source_grounding(self) -> "WorkerResult":
+        if self.worker_id != self.assignment.worker_id:
+            raise ValueError("worker_id must match assignment.worker_id")
+
+        source_ids = [source.source_id for source in self.sources]
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError("source IDs must be unique")
+
+        source_urls = [str(source.url) for source in self.sources]
+        if len(source_urls) != len(set(source_urls)):
+            raise ValueError("source URLs must be unique")
+
+        sources_by_id = {source.source_id: source for source in self.sources}
+        known_source_ids = set(sources_by_id)
+        cited_source_ids = {
+            evidence.source_id
+            for claim in self.claims
+            for evidence in claim.evidence
+        }
+        unknown_source_ids = cited_source_ids - known_source_ids
+        if unknown_source_ids:
+            unknown = ", ".join(sorted(unknown_source_ids))
+            raise ValueError(f"evidence references unknown sources: {unknown}")
+
+        for claim in self.claims:
+            for evidence in claim.evidence:
+                source_text = sources_by_id[evidence.source_id].snippet
+                if evidence.evidence not in source_text:
+                    raise ValueError(
+                        "claim evidence must be an excerpt from the referenced source"
+                    )
 
         return self
 

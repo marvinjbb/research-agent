@@ -7,10 +7,12 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 
 ## Current phase
 
-Phase 2 implements planning only: a request may be converted by an LLM into a validated
-plan of 2–5 assignments. Do not execute workers or implement web search, parallelism,
-synthesis, citations, persistence, RAG, a frontend, Docker, or deployment unless the
-project owner explicitly advances the roadmap.
+Phase 3A implements one isolated worker with application-owned search and analysis
+provider boundaries. Automated tests mock both providers; controlled real-provider calls
+require explicit approval. The worker may research one existing assignment through a
+bounded search strategy and return grounded structured evidence. Do not implement
+parallel workers, full orchestration, final synthesis, persistence, RAG, a frontend,
+Docker, or deployment unless the project owner explicitly advances the roadmap.
 
 ## Engineering rules
 

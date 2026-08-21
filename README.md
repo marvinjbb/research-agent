@@ -9,6 +9,8 @@ LLM-assisted planning behind an application-owned interface. It does not execute
 - `ResearchRequest` validates one question and a `quick` or `deep` research depth.
 - `POST /research/plan` returns a validated plan containing 2–5 focused assignments.
 - OpenAI SDK code is isolated behind the `ResearchPlanner` protocol.
+- `POST /research/worker` researches one existing assignment through separately injected
+  Tavily Basic Search and OpenAI analysis boundaries.
 - pytest and Ruff provide the initial quality gates.
 
 ## Local setup
@@ -23,7 +25,8 @@ Copy-Item .env.example .env
 ```
 
 Set `OPENAI_API_KEY` only in the ignored `.env`. The model and timeout are also backend
-environment settings. Never put credentials in `.env.example` or frontend code.
+environment settings. Store `TAVILY_API_KEY` there as well; Phase 3A enforces
+`TAVILY_SEARCH_DEPTH=basic`. Never put credentials in `.env.example` or frontend code.
 
 Run the API:
 
@@ -48,6 +51,10 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/research/plan `
 ```
 
 The response is a plan only. It does not run workers, search, or produce a report.
+
+Phase 3A's isolated worker returns claims only when each claim has evidence referencing a
+known normalized source. Search is capped at two sequential queries and ten unique sources.
+Parallel workers, orchestration, synthesis, and a final cited report remain deferred.
 
 ## Project structure
 

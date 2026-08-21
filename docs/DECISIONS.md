@@ -61,3 +61,29 @@ arbitrary application structure.
 The API key, model, and timeout come from backend environment variables. Missing
 configuration returns HTTP 503, provider failure returns 502, and provider timeout
 returns 504. Secrets remain only in ignored local or deployment environment storage.
+
+## ADR-009: Separate search, worker, and analysis boundaries
+
+**Status:** Approved
+
+`SingleResearchWorker` coordinates application-owned `SearchProvider` and
+`WorkerResearchProvider` protocols. Provider SDKs remain in adapters. Tavily Basic Search
+is the approved Phase 3A search provider because it returns source URLs, titles, and
+content while preserving an independently testable search boundary.
+
+## ADR-010: Evidence references are application invariants
+
+**Status:** Approved
+
+Every factual `WorkerClaim` requires one or more `ClaimEvidence` records. Each evidence
+record must reference a known `SearchSource` in the same `WorkerResult`. The application
+rejects changed worker IDs, duplicate sources, unknown citations, blank evidence, and
+evidence text that is not a verbatim excerpt from the referenced source snippet.
+
+## ADR-011: Fixed single-worker search bounds
+
+**Status:** Approved
+
+Phase 3A performs at most two sequential searches, requests at most five results per
+search, and retains at most ten unique source URLs. It has no loops driven by model output,
+recursive spawning, parallel execution, or automatic retries.
