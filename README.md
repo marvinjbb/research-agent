@@ -1,7 +1,7 @@
 # Research Agent
 
-A deliberately bounded Python 3.12/FastAPI research proof of concept. Phase 2 adds only
-LLM-assisted planning behind an application-owned interface. It does not execute research.
+A deliberately bounded Python 3.12/FastAPI research proof of concept. It can create a
+validated plan and execute that plan's 2–5 assignments concurrently without synthesis.
 
 ## Current capabilities
 
@@ -11,6 +11,8 @@ LLM-assisted planning behind an application-owned interface. It does not execute
 - OpenAI SDK code is isolated behind the `ResearchPlanner` protocol.
 - `POST /research/worker` researches one existing assignment through separately injected
   Tavily Basic Search and OpenAI analysis boundaries.
+- `POST /research/execute` runs every assignment in a validated `ResearchPlan` as a
+  bounded in-process task and returns ordered success/failure outcomes.
 - pytest and Ruff provide the initial quality gates.
 
 ## Local setup
@@ -50,11 +52,15 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/research/plan `
   -Body '{"question":"Is RAG still important?","depth":"deep"}'
 ```
 
-The response is a plan only. It does not run workers, search, or produce a report.
+The planning response does not run workers, search, or produce a report. Pass a validated
+plan to `POST /research/execute` to run its assignments.
 
 Phase 3A's isolated worker returns claims only when each claim has evidence referencing a
 known normalized source. Search is capped at two sequential queries and ten unique sources.
-Parallel workers, orchestration, synthesis, and a final cited report remain deferred.
+Phase 3B uses `asyncio.gather` to execute 2–5 workers concurrently while preserving plan
+order. One failed worker does not discard successful grounded results; all-worker failure
+returns HTTP 424. Workers are attempted once with no replacement or automatic retry.
+Synthesis and a final cited report remain deferred.
 
 ## Project structure
 

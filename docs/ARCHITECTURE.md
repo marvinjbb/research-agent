@@ -15,21 +15,23 @@ User
   → Cited Report
 ```
 
-Phase 2 implements `FastAPI → Research Planner interface → OpenAI adapter → validated
-ResearchPlan`. Worker execution and every later box remain documented targets, not
-implemented or simulated capabilities.
+Phases 2–3B implement planning through bounded concurrent worker execution and structured
+worker outcomes. Deduplication, conflict analysis, synthesis, and the cited report remain
+documented targets, not implemented capabilities.
 
 ## Component responsibilities
 
 - **FastAPI:** accepts and validates one research question per request and will expose
   research progress/results in a later phase.
-- **Research Orchestrator:** will decompose the question into specific assignments,
-  choose between two and five workers, coordinate them, and combine their evidence.
-- **Research Workers:** will run concurrently inside the same Python service. Each will
+- **Research Orchestrator:** decomposes the question into specific assignments, chooses
+  between two and five workers, and coordinates their bounded execution. Evidence
+  combination remains deferred.
+- **Research Workers:** run concurrently inside the same Python service. Each
   receive one explicit assignment rather than an unrestricted goal.
-- **Web Search:** will retrieve current external sources. Provider selection is deferred.
-- **Structured Evidence:** each worker will eventually return findings, sources, claims,
-  and uncertainties using validated schemas.
+- **Web Search:** Tavily Basic Search retrieves current external sources behind the
+  application-owned `SearchProvider` interface.
+- **Structured Evidence:** each successful worker returns sources, claims, evidence, and
+  uncertainties using validated schemas.
 - **Analysis and synthesis:** the orchestrator will deduplicate overlapping evidence,
   identify conflicts, synthesize grounded conclusions, and create a cited report.
 
@@ -65,8 +67,8 @@ nonblank content, and unique focused task text. Provider configuration comes fro
 environment variables. Provider failure, timeout, and missing configuration have distinct
 HTTP responses.
 
-No plan is treated as research output. Phase 3A can execute one supplied assignment, but
-the full assignment set is not orchestrated by this service yet.
+No plan is treated as research output. Phase 3B executes its assignments but does not
+combine their evidence into conclusions or a report.
 
 ## Phase 3A single-worker boundary
 
@@ -85,3 +87,20 @@ must match a source included in the result. Evidence text must also be a verbati
 from that source's normalized snippet. The application preserves the assignment's worker
 ID and rejects unknown citations. The Tavily adapter uses Basic Search and normalizes
 provider responses behind `SearchProvider`; no Tavily code belongs in worker logic.
+
+## Phase 3B orchestration boundary
+
+```text
+ResearchPlan (2–5 assignments)
+  → ParallelResearchOrchestrator
+  → asyncio.gather over one SingleResearchWorker per assignment
+  → ordered WorkerExecutionOutcome records
+  → ResearchExecutionResult
+```
+
+The orchestrator is application-owned and separate from FastAPI. `asyncio.gather`
+schedules the fixed assignment list concurrently and returns outcomes in input order.
+Each assignment is attempted once. Known worker failures become safe per-worker metadata;
+successful grounded results remain available. At least one worker must succeed, otherwise
+the orchestrator raises a job-level error mapped to HTTP 424. There are no replacement
+workers, automatic retries, recursive spawning, distributed queues, or synthesis.

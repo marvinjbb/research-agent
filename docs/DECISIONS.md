@@ -87,3 +87,17 @@ evidence text that is not a verbatim excerpt from the referenced source snippet.
 Phase 3A performs at most two sequential searches, requests at most five results per
 search, and retains at most ten unique source URLs. It has no loops driven by model output,
 recursive spawning, parallel execution, or automatic retries.
+
+## ADR-012: Ordered partial-success orchestration
+
+**Status:** Approved
+
+Phase 3B executes the validated plan's fixed 2–5 assignments concurrently with standard
+in-process `asyncio.gather`. One existing `SingleResearchWorker` instance is composed per
+assignment; no second worker architecture is introduced. Gathered outcomes retain plan
+order even when completion order differs.
+
+Each assignment is attempted exactly once. Known failures become typed, safe per-worker
+metadata while successful grounded results are retained. At least one worker must succeed;
+if all fail, the job returns HTTP 424. Phase 3B adds no replacement workers, automatic
+retries, recursive spawning, distributed queues, evidence combination, or synthesis.

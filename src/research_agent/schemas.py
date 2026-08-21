@@ -182,6 +182,75 @@ class WorkerResult(BaseModel):
         return self
 
 
+class WorkerExecutionStatus(StrEnum):
+    """Outcome states for one planned worker execution."""
+
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class WorkerFailure(BaseModel):
+    """Safe application-owned metadata for one failed worker."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    message: Annotated[NonBlankText, StringConstraints(max_length=300)]
+
+
+class WorkerExecutionOutcome(BaseModel):
+    """Ordered success or failure for one plan assignment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    worker_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    assignment: WorkerAssignment
+    status: WorkerExecutionStatus
+    result: WorkerResult | None = None
+    error: WorkerFailure | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome(self) -> "WorkerExecutionOutcome":
+        if self.worker_id != self.assignment.worker_id:
+            raise ValueError("worker_id must match assignment.worker_id")
+        if self.status is WorkerExecutionStatus.SUCCEEDED:
+            if self.result is None or self.error is not None:
+                raise ValueError("successful outcome requires only a worker result")
+            if self.result.worker_id != self.worker_id:
+                raise ValueError("result worker_id must match outcome worker_id")
+            if self.result.assignment != self.assignment:
+                raise ValueError("result assignment must match outcome assignment")
+        elif self.result is not None or self.error is None:
+            raise ValueError("failed outcome requires only worker error metadata")
+        return self
+
+
+class ResearchExecutionResult(BaseModel):
+    """Ordered outcomes from executing one validated research plan."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    original_question: Annotated[NonBlankText, StringConstraints(max_length=2_000)]
+    objective: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    strategy: Annotated[NonBlankText, StringConstraints(max_length=2_000)]
+    worker_count: int = Field(ge=2, le=5)
+    workers: list[WorkerExecutionOutcome] = Field(min_length=2, max_length=5)
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> "ResearchExecutionResult":
+        if self.worker_count != len(self.workers):
+            raise ValueError("worker_count must equal the number of worker outcomes")
+        worker_ids = [worker.worker_id for worker in self.workers]
+        if len(worker_ids) != len(set(worker_ids)):
+            raise ValueError("worker outcome IDs must be unique")
+        if not any(
+            worker.status is WorkerExecutionStatus.SUCCEEDED
+            for worker in self.workers
+        ):
+            raise ValueError("at least one worker must succeed")
+        return self
+
+
 class HealthResponse(BaseModel):
     """Response returned by the health endpoint."""
 

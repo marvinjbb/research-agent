@@ -4,6 +4,10 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import ValidationError
 
 from research_agent.config import PlannerSettings, TavilySettings
+from research_agent.orchestration.parallel import (
+    AllWorkersFailedError,
+    ParallelResearchOrchestrator,
+)
 from research_agent.planning.base import (
     PlannerProviderError,
     PlannerTimeoutError,
@@ -12,6 +16,7 @@ from research_agent.planning.base import (
 from research_agent.planning.openai_planner import OpenAIResearchPlanner
 from research_agent.schemas import (
     HealthResponse,
+    ResearchExecutionResult,
     ResearchPlan,
     ResearchRequest,
     WorkerAssignment,
@@ -124,6 +129,22 @@ def get_worker(
     )
 
 
+def get_research_orchestrator(
+    search_provider: Annotated[SearchProvider, Depends(get_search_provider)],
+    research_provider: Annotated[
+        WorkerResearchProvider,
+        Depends(get_worker_research_provider),
+    ],
+) -> ParallelResearchOrchestrator:
+    """Compose bounded orchestration separately from the HTTP route."""
+    return ParallelResearchOrchestrator(
+        worker_factory=lambda: SingleResearchWorker(
+            search_provider=search_provider,
+            research_provider=research_provider,
+        )
+    )
+
+
 @app.post("/research/worker", response_model=WorkerResult)
 async def run_single_worker(
     assignment: WorkerAssignment,
@@ -151,4 +172,27 @@ async def run_single_worker(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="single-worker provider failed",
+        ) from exc
+
+
+@app.post("/research/execute", response_model=ResearchExecutionResult)
+async def execute_research_plan(
+    plan: ResearchPlan,
+    orchestrator: Annotated[
+        ParallelResearchOrchestrator,
+        Depends(get_research_orchestrator),
+    ],
+) -> ResearchExecutionResult:
+    """Execute a validated plan without synthesis or replacement workers."""
+    try:
+        return await orchestrator.execute(plan)
+    except AllWorkersFailedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail={
+                "message": "all research workers failed",
+                "workers": [
+                    outcome.model_dump(mode="json") for outcome in exc.outcomes
+                ],
+            },
         ) from exc

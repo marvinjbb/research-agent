@@ -25,11 +25,12 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Enforce source-grounded claims in a structured worker result
 - Use a fixed sequential search limit and deterministic test doubles
 
-## Phase 3B — Bounded worker orchestration (deferred)
+## Phase 3B — Bounded worker orchestration (current)
 
 - Consume the validated 2–5 assignments produced by Phase 2
 - Execute bounded concurrent worker tasks
-- Add cancellation, retries, and partial-failure behavior
+- Preserve assignment order and grounded results
+- Capture partial failures without retries or replacement workers
 
 ## Phase 4 — Provider and source-quality hardening
 

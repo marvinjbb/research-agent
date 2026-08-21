@@ -7,12 +7,13 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 
 ## Current phase
 
-Phase 3A implements one isolated worker with application-owned search and analysis
-provider boundaries. Automated tests mock both providers; controlled real-provider calls
-require explicit approval. The worker may research one existing assignment through a
-bounded search strategy and return grounded structured evidence. Do not implement
-parallel workers, full orchestration, final synthesis, persistence, RAG, a frontend,
-Docker, or deployment unless the project owner explicitly advances the roadmap.
+Phase 3B executes the 2–5 assignments from one validated plan as bounded concurrent tasks
+inside the service. It reuses `SingleResearchWorker`, preserves plan order, and captures
+known per-worker failures while requiring at least one success. Automated tests mock
+worker execution; controlled parallel provider calls require explicit approval. Do not
+implement synthesis, replacement workers, automatic retries, recursive spawning,
+persistence, RAG, a frontend, Docker, or deployment unless the project owner explicitly
+advances the roadmap.
 
 ## Engineering rules
 
