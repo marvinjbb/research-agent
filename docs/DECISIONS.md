@@ -36,3 +36,28 @@ current persistence or access-pattern requirement.
 The request contains one trimmed question (maximum 2,000 characters) and a `quick` or
 `deep` depth, defaulting to `quick`. Worker count is not caller-controlled because it is
 an orchestrator decision.
+
+## ADR-006: Application-owned planner boundary
+
+**Status:** Approved
+
+FastAPI depends on a `ResearchPlanner` protocol rather than the OpenAI SDK. Provider code
+is isolated in one adapter so application schemas, tests, and endpoint behavior do not
+depend on a specific SDK throughout the codebase.
+
+## ADR-007: Structured planning output with defensive validation
+
+**Status:** Approved
+
+The OpenAI adapter requests Structured Outputs using the application-owned `ResearchPlan`
+Pydantic model. The application still validates worker bounds, count agreement, unique
+IDs, nonblank assignments, and duplicate focused tasks. Model output is never trusted as
+arbitrary application structure.
+
+## ADR-008: Environment-only provider configuration
+
+**Status:** Approved
+
+The API key, model, and timeout come from backend environment variables. Missing
+configuration returns HTTP 503, provider failure returns 502, and provider timeout
+returns 504. Secrets remain only in ignored local or deployment environment storage.

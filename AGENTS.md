@@ -7,9 +7,10 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 
 ## Current phase
 
-The repository is a foundation only. Do not implement LLM calls, web search, research
-workers, sub-agents, orchestration, persistence, RAG, a frontend, Docker, or deployment
-unless the project owner explicitly advances the roadmap.
+Phase 2 implements planning only: a request may be converted by an LLM into a validated
+plan of 2–5 assignments. Do not execute workers or implement web search, parallelism,
+synthesis, citations, persistence, RAG, a frontend, Docker, or deployment unless the
+project owner explicitly advances the roadmap.
 
 ## Engineering rules
 
@@ -22,4 +23,3 @@ unless the project owner explicitly advances the roadmap.
   into independently deployed services without a new approved decision.
 - Record meaningful architecture changes in `docs/DECISIONS.md`.
 - Prefer the smallest implementation that completes the current roadmap phase.
-

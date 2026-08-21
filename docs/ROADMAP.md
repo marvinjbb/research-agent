@@ -2,7 +2,7 @@
 
 Work proceeds one bounded phase at a time. Advancing a phase requires explicit approval.
 
-## Phase 1 — Foundation (current)
+## Phase 1 — Foundation (complete)
 
 - Python 3.12 package and FastAPI application
 - Health endpoint
@@ -10,15 +10,16 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - pytest and Ruff
 - Architecture and decision documentation
 
-## Phase 2 — Research contracts
+## Phase 2 — Planning contracts and adapter (current)
 
-- Define assignments, evidence, source, claim, uncertainty, and final-report schemas
-- Define error and progress contracts
-- Test schema invariants without calling external services
+- Define the validated research-plan and worker-assignment contracts
+- Add the provider-neutral planner interface and OpenAI Structured Outputs adapter
+- Add `POST /research/plan` with controlled configuration/provider errors
+- Test planning schema invariants and provider boundaries without paid calls
 
-## Phase 3 — Orchestrator skeleton
+## Phase 3 — Worker execution skeleton
 
-- Plan 2–5 specific assignments
+- Consume the validated 2–5 assignments produced by Phase 2
 - Execute bounded concurrent worker tasks
 - Add timeouts, cancellation, retries, and partial-failure behavior
 - Use deterministic test doubles before real providers
@@ -41,4 +42,3 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 Frontend, persistence, RAG, vector storage, long-term memory, Docker, and deployment are
 outside the current scope. They should be added only when a demonstrated requirement
 justifies them.
-

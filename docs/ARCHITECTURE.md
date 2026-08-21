@@ -15,8 +15,9 @@ User
   → Cited Report
 ```
 
-Only FastAPI and the initial request schema exist in the foundation phase. Every later
-box is a documented target, not an implemented or simulated capability.
+Phase 2 implements `FastAPI → Research Planner interface → OpenAI adapter → validated
+ResearchPlan`. Worker execution and every later box remain documented targets, not
+implemented or simulated capabilities.
 
 ## Component responsibilities
 
@@ -55,3 +56,14 @@ box is a documented target, not an implemented or simulated capability.
 `depth` of `quick` or `deep`. It intentionally contains no worker count: worker selection
 belongs to the orchestrator and remains bounded by the architecture.
 
+## Phase 2 planning boundary
+
+FastAPI depends on the application-owned `ResearchPlanner` protocol. The OpenAI adapter
+uses Structured Outputs with `ResearchPlan` as the response schema. Application
+validation independently enforces 2–5 assignments, matching worker count, unique IDs,
+nonblank content, and unique focused task text. Provider configuration comes from backend
+environment variables. Provider failure, timeout, and missing configuration have distinct
+HTTP responses.
+
+No plan is treated as research output. Assignments are instructions for a later phase;
+they are not executed by this service yet.
