@@ -10,9 +10,11 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 Phase 5 exposes one request-scoped `ResearchWorkflow` that composes the existing planner,
 parallel orchestrator, and synthesis service behind `POST /research`. Do not duplicate or
 redesign any phase logic. Automated tests mock major boundaries; controlled real workflow
-calls require explicit approval. Do not add background jobs, fuzzy clustering,
+calls require explicit approval. The deployment phase packages this same service as one
+non-root container; provider credentials remain runtime environment variables. Do not add
+background jobs, fuzzy clustering,
 replacement workers, automatic retries, recursive spawning, persistence, RAG, a frontend,
-Docker, or deployment unless the project owner explicitly advances the roadmap.
+or VPS-specific proxy configuration.
 
 Worker analysis uses immutable application-generated evidence candidates. Provider output
 may select candidate IDs only; application code owns and resolves the exact evidence text.

@@ -37,6 +37,13 @@ environment settings. Store `TAVILY_API_KEY` there as well; Phase 3A enforces
 Final synthesis uses the same backend-only OpenAI key with separate
 `OPENAI_SYNTHESIS_MODEL` and `OPENAI_SYNTHESIS_TIMEOUT_SECONDS` settings.
 
+Production browser access is limited to `CORS_ALLOWED_ORIGIN`, which defaults to
+`https://marvinjb.dev`. Provider-backed POST endpoints share process-local cost controls:
+ten accepted requests per ten-minute window and two simultaneous requests by
+default. Override those bounded values through `RESEARCH_RATE_LIMIT_REQUESTS`,
+`RESEARCH_RATE_LIMIT_WINDOW_SECONDS`, and `RESEARCH_MAX_CONCURRENT`. `/health` remains an
+unlimited process-level liveness check.
+
 Run the API:
 
 ```powershell
@@ -49,6 +56,40 @@ Verify it:
 Invoke-RestMethod http://127.0.0.1:8000/health
 ruff check .
 pytest
+```
+
+## Container
+
+Build the production image from the repository root:
+
+```powershell
+docker build -t research-agent:local .
+```
+
+Run it with an explicit host-port mapping and the ignored local environment file:
+
+```powershell
+docker run --rm --name research-agent-local `
+  --env-file .env `
+  -p 8000:8000 `
+  research-agent:local
+```
+
+The image listens on `0.0.0.0:8000` internally. The `-p` value is an operator choice and
+is not hard-coded into the image, so the VPS can assign a non-conflicting host port.
+Provider keys are supplied only at runtime; `.env` is excluded from Git and the Docker
+build context. The image runs as the unprivileged `research-agent` user and includes a
+`/health` container health check.
+
+The reverse proxy must allow enough time for the synchronous research response. Start with
+a 300-second upstream response timeout and measure real quick/deep latency before tuning it.
+This is an operational requirement, not an Nginx configuration stored in this repository.
+
+Verify the running container:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+docker inspect --format='{{.State.Health.Status}}' research-agent-local
 ```
 
 Planning request:
@@ -96,6 +137,8 @@ research-agent/
 ├── src/research_agent/  # FastAPI application and API schemas
 ├── tests/               # Automated behavior and validation tests
 ├── docs/                # Architecture, roadmap, and decision records
+├── Dockerfile           # Multi-stage production container image
+├── .dockerignore        # Minimal, secret-free Docker build context
 ├── AGENTS.md            # Repository-specific contributor guidance
 └── pyproject.toml        # Package, dependency, pytest, and Ruff configuration
 ```

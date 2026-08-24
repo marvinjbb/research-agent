@@ -15,8 +15,9 @@ User
   → Cited Report
 ```
 
-Phases 2–4 implement planning, bounded concurrent worker execution, deterministic evidence
-aggregation, structured conflict analysis, and a cited final report.
+Phases 2–5 implement planning, bounded concurrent worker execution, deterministic evidence
+aggregation, structured conflict analysis, a cited final report, and the complete
+request-scoped workflow.
 
 ## Component responsibilities
 
@@ -49,7 +50,8 @@ aggregation, structured conflict analysis, and a cited final report.
 - No persistence or database initially.
 - No recursive or unlimited agent spawning.
 - No frontend.
-- No deployment or Docker yet.
+- One production container for the existing Python service; no distributed workers.
+- No repository-owned Nginx or VPS host-port configuration.
 
 ## Current request boundary
 
@@ -167,3 +169,43 @@ Known planner, all-worker, and synthesis failures retain their existing typed ex
 and HTTP mappings. Pydantic failures at workflow handoffs become an explicit invalid
 structured-output error. Unexpected programming exceptions are not caught or disguised as
 provider failures.
+
+## Deployment container boundary
+
+```text
+VPS runtime environment
+  → runtime-only OpenAI and Tavily variables
+  → non-root Research Agent container
+  → Uvicorn on 0.0.0.0:8000
+  → FastAPI /health and /research
+```
+
+The multi-stage Docker build creates a wheel in a disposable builder and installs only the
+project and runtime dependencies into the final Python 3.12 slim image. Source-control
+metadata, tests, documentation, local virtual environments, caches, and `.env` never enter
+the build context. The image declares port 8000 but does not select a VPS host port. A
+standard-library health check verifies both the HTTP status and exact health payload.
+
+The container does not change application architecture: all 2–5 workers remain bounded
+async tasks in one service. OpenAI and Tavily adapters still receive credentials from
+runtime environment variables. Nginx routing, TLS, and host-port selection belong to the
+VPS deployment layer and are intentionally absent from this repository.
+
+## Public API boundary
+
+Browser CORS permits only the single HTTPS origin supplied by `CORS_ALLOWED_ORIGIN`
+(`https://marvinjb.dev` by default). Credentials are not enabled, and allowed browser
+methods and headers are limited to the JSON research request.
+
+All provider-backed POST routes share two process-local bounds: a fixed request window and
+a maximum number of active requests. Defaults allow ten accepted requests per ten minutes
+and two concurrent provider-backed requests across the container. Rejections return HTTP 429
+with `Retry-After`. This global policy intentionally avoids trusting client-controlled
+forwarding headers and remains reliable behind the reverse proxy. It resets on container
+restart and would not coordinate across replicas; those are accepted constraints while v1
+runs as one container. `/health` remains an unlimited process-level liveness check.
+
+Because the endpoint returns only after the bounded workflow completes, the external
+reverse proxy needs an upstream response timeout long enough for quick and deep research.
+The initial operational recommendation is 300 seconds, followed by measurement-based
+tuning. No reverse-proxy files belong in this application repository.

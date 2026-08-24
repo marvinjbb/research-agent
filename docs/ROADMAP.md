@@ -41,14 +41,25 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Produce a validated final cited report behind a provider interface
 - Resolve provider-selected claim, evidence, and uncertainty IDs into application-owned text
 
-## Phase 5 — End-to-end research workflow (current)
+## Phase 5 — End-to-end research workflow (complete)
 
 - Compose planning, bounded execution, and synthesis without redesigning them
 - Add `POST /research` for one complete request
 - Preserve phase-specific validation and failure policies
 - Keep all workflow state request-scoped and in memory
 
-## Phase 6 — Evaluation and production hardening
+## Phase 6 — Production container packaging (current)
+
+- Build a multi-stage Python 3.12 production image
+- Run Uvicorn as a non-root user on internal port 8000
+- Keep provider credentials runtime-only and outside the build context
+- Add a reliable container health check
+- Validate the full application and provider dependencies under Linux
+- Restrict browser CORS to the portfolio origin
+- Add bounded single-container request and concurrency cost controls
+- Document the reverse-proxy timeout requirement without adding VPS configuration
+
+## Phase 7 — Evaluation and production hardening
 
 - Add repeatable quality, grounding, and failure-mode evaluations
 - Improve source-quality selection and document-level deduplication
@@ -56,6 +67,6 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 
 ## Explicitly deferred
 
-Frontend, persistence, RAG, vector storage, long-term memory, Docker, and deployment are
-outside the current scope. They should be added only when a demonstrated requirement
-justifies them.
+Persistence, RAG, vector storage, long-term memory, repository-owned Nginx configuration,
+and distributed deployment infrastructure remain outside the current scope. They should
+be added only when a demonstrated requirement justifies them.

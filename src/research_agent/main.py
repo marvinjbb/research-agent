@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from research_agent.config import PlannerSettings, SynthesisSettings, TavilySettings
@@ -14,6 +15,7 @@ from research_agent.planning.base import (
     ResearchPlanner,
 )
 from research_agent.planning.openai_planner import OpenAIResearchPlanner
+from research_agent.public_api import enforce_public_research_limit, public_api_settings
 from research_agent.schemas import (
     FinalResearchReport,
     HealthResponse,
@@ -50,6 +52,13 @@ app = FastAPI(
     description="API foundation for a bounded multi-agent research system.",
     version="0.1.0",
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[str(public_api_settings.cors_allowed_origin).rstrip("/")],
+    allow_credentials=False,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -75,7 +84,11 @@ def get_planner() -> ResearchPlanner:
     )
 
 
-@app.post("/research/plan", response_model=ResearchPlan)
+@app.post(
+    "/research/plan",
+    response_model=ResearchPlan,
+    dependencies=[Depends(enforce_public_research_limit)],
+)
 async def create_research_plan(
     request: ResearchRequest,
     planner: Annotated[ResearchPlanner, Depends(get_planner)],
@@ -156,7 +169,11 @@ def get_research_orchestrator(
     )
 
 
-@app.post("/research/worker", response_model=WorkerResult)
+@app.post(
+    "/research/worker",
+    response_model=WorkerResult,
+    dependencies=[Depends(enforce_public_research_limit)],
+)
 async def run_single_worker(
     assignment: WorkerAssignment,
     worker: Annotated[SingleResearchWorker, Depends(get_worker)],
@@ -186,7 +203,11 @@ async def run_single_worker(
         ) from exc
 
 
-@app.post("/research/execute", response_model=ResearchExecutionResult)
+@app.post(
+    "/research/execute",
+    response_model=ResearchExecutionResult,
+    dependencies=[Depends(enforce_public_research_limit)],
+)
 async def execute_research_plan(
     plan: ResearchPlan,
     orchestrator: Annotated[
@@ -228,7 +249,11 @@ def get_synthesis_service() -> ResearchSynthesisService:
     )
 
 
-@app.post("/research/synthesize", response_model=FinalResearchReport)
+@app.post(
+    "/research/synthesize",
+    response_model=FinalResearchReport,
+    dependencies=[Depends(enforce_public_research_limit)],
+)
 async def synthesize_research_report(
     execution: ResearchExecutionResult,
     service: Annotated[
@@ -280,7 +305,11 @@ def get_research_workflow(
     )
 
 
-@app.post("/research", response_model=FinalResearchReport)
+@app.post(
+    "/research",
+    response_model=FinalResearchReport,
+    dependencies=[Depends(enforce_public_research_limit)],
+)
 async def run_research_workflow(
     request: ResearchRequest,
     workflow: Annotated[ResearchWorkflow, Depends(get_research_workflow)],

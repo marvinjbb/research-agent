@@ -170,3 +170,35 @@ validation stage, field path, record IDs, and error type; never prompts, provide
 credentials, evidence excerpts, or source contents. Provider-returned IDs are logged only
 when they match application-generated ID formats; malformed IDs are replaced by a fixed
 redaction marker.
+
+## ADR-017: One minimal non-root production container
+
+**Status:** Approved
+
+The existing FastAPI service is packaged as one multi-stage Python 3.12 slim image. A
+disposable builder creates the application wheel; the final stage installs only that wheel
+and its runtime dependencies. The service runs as an unprivileged user and Uvicorn binds to
+`0.0.0.0:8000`. Docker declares only the internal port, leaving host-port selection to the
+deployment environment.
+
+OpenAI and Tavily credentials are injected at runtime and never copied into an image layer
+or build context. The image health check uses Python's standard library to verify the exact
+`GET /health` response without adding a separate HTTP client package. Nginx, TLS, DNS, and
+VPS-specific port mappings remain operational concerns outside this repository.
+
+## ADR-018: Process-local public research cost controls
+
+**Status:** Approved
+
+All provider-backed POST endpoints share a global fixed-window request limit plus a global
+concurrency limit. Defaults permit ten accepted requests per ten minutes and at most two
+active provider-backed requests. Both limits are environment-configurable within bounded
+validation. `/health` is not limited.
+Excess work fails immediately with HTTP 429 and `Retry-After`; no request is queued or
+retried automatically.
+
+Global process-local accounting is the smallest reliable choice for the approved
+single-container portfolio deployment. It does not trust forwarded client IP headers,
+requires no Redis or database, and places a deterministic ceiling on concurrent provider
+spend. Counters reset when the container restarts and will not coordinate across future
+replicas; a shared limiter would require a new decision if the deployment scales out.

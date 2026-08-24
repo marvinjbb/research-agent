@@ -1,4 +1,4 @@
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE_CONFIG = SettingsConfigDict(
@@ -82,4 +82,40 @@ class SynthesisSettings(BaseSettings):
     def require_api_key_value(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().strip():
             raise ValueError("OPENAI_API_KEY must not be blank")
+        return value
+
+
+class PublicApiSettings(BaseSettings):
+    """Environment-backed controls for the public portfolio endpoint."""
+
+    model_config = ENV_FILE_CONFIG
+
+    cors_allowed_origin: AnyHttpUrl = Field(
+        default="https://marvinjb.dev",
+        alias="CORS_ALLOWED_ORIGIN",
+    )
+    research_rate_limit_requests: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        alias="RESEARCH_RATE_LIMIT_REQUESTS",
+    )
+    research_rate_limit_window_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=86400,
+        alias="RESEARCH_RATE_LIMIT_WINDOW_SECONDS",
+    )
+    research_max_concurrent: int = Field(
+        default=2,
+        ge=1,
+        le=5,
+        alias="RESEARCH_MAX_CONCURRENT",
+    )
+
+    @field_validator("cors_allowed_origin")
+    @classmethod
+    def require_https_origin(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if str(value).rstrip("/") != "https://marvinjb.dev":
+            raise ValueError("CORS_ALLOWED_ORIGIN must be https://marvinjb.dev")
         return value
