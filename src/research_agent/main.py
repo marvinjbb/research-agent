@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import ValidationError
 
-from research_agent.config import PlannerSettings, TavilySettings
+from research_agent.config import PlannerSettings, SynthesisSettings, TavilySettings
 from research_agent.orchestration.parallel import (
     AllWorkersFailedError,
     ParallelResearchOrchestrator,
@@ -15,6 +15,7 @@ from research_agent.planning.base import (
 )
 from research_agent.planning.openai_planner import OpenAIResearchPlanner
 from research_agent.schemas import (
+    FinalResearchReport,
     HealthResponse,
     ResearchExecutionResult,
     ResearchPlan,
@@ -24,6 +25,15 @@ from research_agent.schemas import (
 )
 from research_agent.search.base import SearchProvider, SearchProviderError, SearchTimeoutError
 from research_agent.search.tavily import TavilySearchProvider
+from research_agent.synthesis.aggregate import EvidenceAggregator
+from research_agent.synthesis.base import (
+    NoSuccessfulWorkersError,
+    SynthesisEvidenceError,
+    SynthesisProviderError,
+    SynthesisTimeoutError,
+)
+from research_agent.synthesis.openai_synthesizer import OpenAIResearchSynthesizer
+from research_agent.synthesis.service import ResearchSynthesisService
 from research_agent.workers.base import (
     EmptySearchResultsError,
     WorkerEvidenceError,
@@ -195,4 +205,56 @@ async def execute_research_plan(
                     outcome.model_dump(mode="json") for outcome in exc.outcomes
                 ],
             },
+        ) from exc
+
+
+def get_synthesis_service() -> ResearchSynthesisService:
+    """Compose deterministic aggregation with the configured synthesis adapter."""
+    try:
+        settings = SynthesisSettings()
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="research synthesis provider is not configured",
+        ) from exc
+    return ResearchSynthesisService(
+        aggregator=EvidenceAggregator(),
+        synthesizer=OpenAIResearchSynthesizer(
+            api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.openai_synthesis_model,
+            timeout_seconds=settings.openai_synthesis_timeout_seconds,
+        ),
+    )
+
+
+@app.post("/research/synthesize", response_model=FinalResearchReport)
+async def synthesize_research_report(
+    execution: ResearchExecutionResult,
+    service: Annotated[
+        ResearchSynthesisService,
+        Depends(get_synthesis_service),
+    ],
+) -> FinalResearchReport:
+    """Produce a final report from validated worker evidence only."""
+    try:
+        return await service.synthesize(execution)
+    except SynthesisTimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="research synthesis timed out",
+        ) from exc
+    except SynthesisEvidenceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="research synthesis contains unsupported evidence",
+        ) from exc
+    except NoSuccessfulWorkersError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail="research execution has no successful workers",
+        ) from exc
+    except SynthesisProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="research synthesis provider failed",
         ) from exc

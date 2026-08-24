@@ -25,24 +25,25 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Enforce source-grounded claims in a structured worker result
 - Use a fixed sequential search limit and deterministic test doubles
 
-## Phase 3B — Bounded worker orchestration (current)
+## Phase 3B — Bounded worker orchestration (complete)
 
 - Consume the validated 2–5 assignments produced by Phase 2
 - Execute bounded concurrent worker tasks
 - Preserve assignment order and grounded results
 - Capture partial failures without retries or replacement workers
 
-## Phase 4 — Provider and source-quality hardening
+## Phase 4 — Grounded synthesis and cited report (current)
 
-- Improve source-quality selection and document-level deduplication
-- Evaluate richer source retrieval only if snippets prove insufficient
-- Add cost, timeout, and abuse controls
+- Aggregate successful worker evidence with provenance
+- Deduplicate identical URLs and normalized-identical claims
+- Surface conflicts, uncertainties, and partial failures
+- Produce a validated final cited report behind a provider interface
 
-## Phase 5 — Analysis and evaluation
+## Phase 5 — Evaluation and production hardening
 
-- Deduplicate evidence and identify conflicting claims
-- Synthesize cited reports
 - Add repeatable quality, grounding, and failure-mode evaluations
+- Improve source-quality selection and document-level deduplication
+- Add cost, timeout, and abuse controls
 
 ## Explicitly deferred
 

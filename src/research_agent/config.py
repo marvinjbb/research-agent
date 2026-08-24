@@ -57,3 +57,29 @@ class TavilySettings(BaseSettings):
         if value.strip().casefold() != "basic":
             raise ValueError("TAVILY_SEARCH_DEPTH must be basic in Phase 3A")
         return "basic"
+
+
+class SynthesisSettings(BaseSettings):
+    """Environment-backed configuration for final-report synthesis."""
+
+    model_config = ENV_FILE_CONFIG
+
+    openai_api_key: SecretStr = Field(alias="OPENAI_API_KEY")
+    openai_synthesis_model: str = Field(
+        default="gpt-5.4-mini",
+        min_length=1,
+        alias="OPENAI_SYNTHESIS_MODEL",
+    )
+    openai_synthesis_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        le=120,
+        alias="OPENAI_SYNTHESIS_TIMEOUT_SECONDS",
+    )
+
+    @field_validator("openai_api_key")
+    @classmethod
+    def require_api_key_value(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("OPENAI_API_KEY must not be blank")
+        return value

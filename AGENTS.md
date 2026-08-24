@@ -7,13 +7,13 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 
 ## Current phase
 
-Phase 3B executes the 2–5 assignments from one validated plan as bounded concurrent tasks
-inside the service. It reuses `SingleResearchWorker`, preserves plan order, and captures
-known per-worker failures while requiring at least one success. Automated tests mock
-worker execution; controlled parallel provider calls require explicit approval. Do not
-implement synthesis, replacement workers, automatic retries, recursive spawning,
-persistence, RAG, a frontend, Docker, or deployment unless the project owner explicitly
-advances the roadmap.
+Phase 4 aggregates validated successful worker results and produces a structured cited
+report behind an application-owned synthesis-provider boundary. Exact URL/claim
+deduplication, provenance, grounded citations, explicit conflicts, uncertainties, and
+failed-worker metadata are required. Automated tests mock synthesis; controlled real
+provider calls require explicit approval. Do not add fuzzy clustering, replacement
+workers, automatic retries, recursive spawning, persistence, RAG, a frontend, Docker, or
+deployment unless the project owner explicitly advances the roadmap.
 
 ## Engineering rules
 

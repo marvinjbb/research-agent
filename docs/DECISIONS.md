@@ -101,3 +101,23 @@ Each assignment is attempted exactly once. Known failures become typed, safe per
 metadata while successful grounded results are retained. At least one worker must succeed;
 if all fail, the job returns HTTP 424. Phase 3B adds no replacement workers, automatic
 retries, recursive spawning, distributed queues, evidence combination, or synthesis.
+
+## ADR-013: Deterministic aggregation and claim-bound synthesis
+
+**Status:** Approved
+
+Phase 4 separates deterministic evidence aggregation from model synthesis. Identical URLs
+are deduplicated into global source records while preserving all original worker/source
+provenance, snippets, and previously validated excerpts. Claims are merged only by exact
+case/whitespace-normalized equality; exact containment is flagged as obvious overlap.
+There is no fuzzy semantic clustering or embedding-based comparison.
+
+OpenAI remains behind the application-owned `ResearchSynthesizer` protocol and returns a
+structured `SynthesisDraft`. Every factual report statement must copy an aggregated worker
+claim, reference its claim ID, and cite evidence belonging to that claim. Conflicting
+positions remain separately cited, recommendations are explicitly inference, and worker
+uncertainties must be copied with attribution. The application injects sources,
+provenance, and failed-worker metadata and rejects unknown or unsupported citations.
+Material-conflict classification is provider-driven in v1; the deterministic layer
+preserves every distinct claim and validates cited conflict positions but does not claim
+complete semantic conflict detection without fuzzy or embedding-based analysis.

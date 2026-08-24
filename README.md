@@ -1,7 +1,8 @@
 # Research Agent
 
 A deliberately bounded Python 3.12/FastAPI research proof of concept. It can create a
-validated plan and execute that plan's 2–5 assignments concurrently without synthesis.
+validated plan, execute 2–5 assignments concurrently, and synthesize their validated
+evidence into a cited final report.
 
 ## Current capabilities
 
@@ -13,6 +14,8 @@ validated plan and execute that plan's 2–5 assignments concurrently without sy
   Tavily Basic Search and OpenAI analysis boundaries.
 - `POST /research/execute` runs every assignment in a validated `ResearchPlan` as a
   bounded in-process task and returns ordered success/failure outcomes.
+- `POST /research/synthesize` aggregates a validated execution and returns a grounded
+  final report without rerunning workers or searching the web.
 - pytest and Ruff provide the initial quality gates.
 
 ## Local setup
@@ -29,6 +32,8 @@ Copy-Item .env.example .env
 Set `OPENAI_API_KEY` only in the ignored `.env`. The model and timeout are also backend
 environment settings. Store `TAVILY_API_KEY` there as well; Phase 3A enforces
 `TAVILY_SEARCH_DEPTH=basic`. Never put credentials in `.env.example` or frontend code.
+Final synthesis uses the same backend-only OpenAI key with separate
+`OPENAI_SYNTHESIS_MODEL` and `OPENAI_SYNTHESIS_TIMEOUT_SECONDS` settings.
 
 Run the API:
 
@@ -60,7 +65,10 @@ known normalized source. Search is capped at two sequential queries and ten uniq
 Phase 3B uses `asyncio.gather` to execute 2–5 workers concurrently while preserving plan
 order. One failed worker does not discard successful grounded results; all-worker failure
 returns HTTP 424. Workers are attempted once with no replacement or automatic retry.
-Synthesis and a final cited report remain deferred.
+Phase 4 deterministically deduplicates identical URLs and normalized-identical claims,
+preserves source/worker provenance, and flags obvious claim containment for provider
+review. The synthesis model can select only validated worker claims and evidence. It must
+surface competing positions explicitly and cannot invent sources or factual statements.
 
 ## Project structure
 
