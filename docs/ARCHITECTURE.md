@@ -20,8 +20,8 @@ aggregation, structured conflict analysis, and a cited final report.
 
 ## Component responsibilities
 
-- **FastAPI:** accepts and validates one research question per request and will expose
-  research progress/results in a later phase.
+- **FastAPI:** accepts and validates one research question per request and exposes the
+  complete workflow through `POST /research`.
 - **Research Orchestrator:** decomposes the question into specific assignments, chooses
   between two and five workers, and coordinates their bounded execution. Phase 4's
   synthesis layer aggregates their validated evidence into the final report.
@@ -76,16 +76,22 @@ WorkerAssignment
   → SingleResearchWorker
   → SearchProvider interface (at most 2 sequential searches)
   → normalized SearchSource records (at most 10 unique URLs)
+  → immutable application-owned EvidenceCandidate records
   → WorkerResearchProvider interface
+  → selected evidence IDs resolved by the application
   → validated WorkerResult
 ```
 
 The worker and search adapter are separate application layers. No provider SDK belongs in
-`SingleResearchWorker`. Every `WorkerClaim` requires evidence, and every evidence reference
-must match a source included in the result. Evidence text must also be a verbatim excerpt
-from that source's normalized snippet. The application preserves the assignment's worker
-ID and rejects unknown citations. The Tavily adapter uses Basic Search and normalizes
-provider responses behind `SearchProvider`; no Tavily code belongs in worker logic.
+`SingleResearchWorker`. It deterministically assigns stable IDs to exact, bounded excerpts
+from normalized snippets and supplies those immutable candidates to the analysis provider.
+The model selects evidence IDs instead of reproducing text. Application code rejects
+unknown IDs and resolves valid selections into `ClaimEvidence`, so the provider cannot
+invent or modify evidence text. `WorkerResult` still validates source identity and exact
+excerpt containment. Evidence IDs travel with validated evidence through aggregation and
+final citations; conflicting ID-to-source/text mappings fail validation. The Tavily adapter
+uses Basic Search behind `SearchProvider`; no
+Tavily code belongs in worker logic.
 
 ## Phase 3B orchestration boundary
 
@@ -123,12 +129,13 @@ one global source while retaining every snippet, validated excerpt, and original
 case/whitespace-normalized text is identical. Exact containment is flagged as obvious
 overlap, but distinct claims are preserved.
 
-The model receives only `EvidenceBundle`. Every factual report statement must copy a
-validated worker claim, reference its aggregated claim ID, and cite evidence attached to
-that claim. Citation excerpts must already have passed worker grounding. Conflicts contain
-at least two separately cited positions; recommendations are a distinct inference schema.
-Worker uncertainties and failed-worker summaries retain their original attribution. The
-application, not the model, injects the source catalog, provenance, and failure metadata.
+The model receives only `EvidenceBundle` and returns application-owned claim, evidence,
+and uncertainty IDs. Application code resolves exact claim wording, citations, source
+references, and uncertainty wording into the unchanged final-report contract. Conflicts
+select at least two claim positions. Recommendations and conflict summaries may be authored
+as inference, but their factual support is selected by ID. Worker uncertainties and failed-
+worker summaries retain their original attribution. Final validators recheck all resolved
+claims and citations as defense in depth.
 
 Material-conflict classification is intentionally provider-driven in v1 because reliable
 semantic conflict detection cannot be implemented with exact string rules alone. The
@@ -136,3 +143,27 @@ application never merges distinct claims, supplies every claim to the provider, 
 separately cited positions for any reported conflict, and validates those positions. It
 does not claim that every latent semantic conflict can be detected without later
 evaluation or semantic analysis.
+
+## Phase 5 end-to-end workflow boundary
+
+```text
+ResearchRequest
+  → ResearchWorkflow
+  → ResearchPlanner
+  → ResearchPlan
+  → ParallelResearchOrchestrator
+  → ResearchExecutionResult
+  → ResearchSynthesisService
+  → FinalResearchReport
+```
+
+`ResearchWorkflow` is application-owned and independent of FastAPI. It adds no planning,
+search, worker, aggregation, or synthesis behavior; it validates and passes each existing
+application-owned contract to the next proven service. All state is local to one request.
+The primary endpoint accepts no worker count, persistence identifier, or background-job
+configuration.
+
+Known planner, all-worker, and synthesis failures retain their existing typed exceptions
+and HTTP mappings. Pydantic failures at workflow handoffs become an explicit invalid
+structured-output error. Unexpected programming exceptions are not caught or disguised as
+provider failures.

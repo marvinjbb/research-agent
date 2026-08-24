@@ -1,4 +1,5 @@
 from enum import StrEnum
+from hashlib import sha256
 from typing import Annotated
 
 from pydantic import (
@@ -93,11 +94,24 @@ class SearchSource(BaseModel):
     publisher: Annotated[NonBlankText, StringConstraints(max_length=300)] | None = None
 
 
+class EvidenceCandidate(BaseModel):
+    """Immutable application-owned excerpt offered to the worker model."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    evidence_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    source_url: HttpUrl
+    source_title: Annotated[NonBlankText, StringConstraints(max_length=500)]
+    evidence: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+
+
 class ClaimEvidence(BaseModel):
     """A traceable piece of source evidence supporting one claim."""
 
     model_config = ConfigDict(extra="forbid")
 
+    evidence_id: Annotated[NonBlankText, StringConstraints(max_length=50)] | None = None
     source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     evidence: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
 
@@ -112,6 +126,15 @@ class ClaimEvidence(BaseModel):
             return value[1:-1]
         return value
 
+    @model_validator(mode="after")
+    def ensure_application_evidence_id(self) -> "ClaimEvidence":
+        if self.evidence_id is None:
+            digest = sha256(
+                f"{self.source_id}\0{self.evidence}".encode()
+            ).hexdigest()[:32]
+            self.evidence_id = f"evidence-{digest}"
+        return self
+
 
 class WorkerClaim(BaseModel):
     """A factual finding that must include at least one source reference."""
@@ -122,12 +145,29 @@ class WorkerClaim(BaseModel):
     evidence: list[ClaimEvidence] = Field(min_length=1, max_length=8)
 
 
-class WorkerAnalysis(BaseModel):
-    """Structured LLM analysis built only from supplied search sources."""
+class WorkerClaimSelection(BaseModel):
+    """Provider-selected evidence IDs for one proposed factual claim."""
 
     model_config = ConfigDict(extra="forbid")
 
-    claims: list[WorkerClaim] = Field(min_length=1, max_length=12)
+    claim: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    evidence_ids: list[
+        Annotated[NonBlankText, StringConstraints(max_length=50)]
+    ] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_unique_evidence_ids(self) -> "WorkerClaimSelection":
+        if len(self.evidence_ids) != len(set(self.evidence_ids)):
+            raise ValueError("evidence IDs within a claim must be unique")
+        return self
+
+
+class WorkerAnalysis(BaseModel):
+    """Structured LLM selections from application-owned evidence candidates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claims: list[WorkerClaimSelection] = Field(min_length=1, max_length=12)
     uncertainties: list[
         Annotated[NonBlankText, StringConstraints(max_length=1_000)]
     ] = Field(min_length=1, max_length=8)
@@ -302,8 +342,18 @@ class AggregatedEvidence(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    evidence_id: Annotated[NonBlankText, StringConstraints(max_length=50)] | None = None
     source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     evidence: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+
+    @model_validator(mode="after")
+    def ensure_application_evidence_id(self) -> "AggregatedEvidence":
+        if self.evidence_id is None:
+            digest = sha256(
+                f"{self.source_id}\0{self.evidence}".encode()
+            ).hexdigest()[:32]
+            self.evidence_id = f"evidence-{digest}"
+        return self
 
 
 class AggregatedClaim(BaseModel):
@@ -334,6 +384,7 @@ class AggregatedUncertainty(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    uncertainty_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     worker_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     statement: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
 
@@ -370,6 +421,13 @@ def _validate_claim_catalog(
                 raise ValueError("aggregated claim references an unknown source")
             if evidence.evidence not in source.validated_excerpts:
                 raise ValueError("aggregated claim uses unvalidated source evidence")
+    evidence_by_id: dict[str, tuple[str, str]] = {}
+    for claim in claims:
+        for evidence in claim.evidence:
+            identity = (evidence.source_id, evidence.evidence)
+            previous = evidence_by_id.setdefault(str(evidence.evidence_id), identity)
+            if previous != identity:
+                raise ValueError("evidence ID maps to conflicting evidence")
 
 
 class EvidenceBundle(BaseModel):
@@ -404,8 +462,18 @@ class ReportCitation(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    evidence_id: Annotated[NonBlankText, StringConstraints(max_length=50)] | None = None
     source_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     evidence: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+
+    @model_validator(mode="after")
+    def ensure_application_evidence_id(self) -> "ReportCitation":
+        if self.evidence_id is None:
+            digest = sha256(
+                f"{self.source_id}\0{self.evidence}".encode()
+            ).hexdigest()[:32]
+            self.evidence_id = f"evidence-{digest}"
+        return self
 
 
 class CitedReportClaim(BaseModel):
@@ -450,17 +518,70 @@ class ReportRecommendation(BaseModel):
     citations: list[ReportCitation] = Field(min_length=1, max_length=10)
 
 
-class SynthesisDraft(BaseModel):
-    """Structured provider output before deterministic report assembly."""
+class SynthesisClaimSelection(BaseModel):
+    """Provider selection of one application-owned claim and its evidence."""
 
     model_config = ConfigDict(extra="forbid")
 
-    executive_summary: list[CitedReportClaim] = Field(min_length=1, max_length=5)
-    key_findings: list[CitedReportClaim] = Field(min_length=1, max_length=12)
-    important_claims: list[CitedReportClaim] = Field(min_length=1, max_length=20)
-    conflicts: list[ReportConflict] = Field(default_factory=list, max_length=8)
-    uncertainties: list[ReportUncertainty] = Field(default_factory=list, max_length=12)
-    recommendations: list[ReportRecommendation] = Field(default_factory=list, max_length=8)
+    claim_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+    evidence_ids: list[
+        Annotated[NonBlankText, StringConstraints(max_length=50)]
+    ] = Field(min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_unique_evidence_ids(self) -> "SynthesisClaimSelection":
+        if len(self.evidence_ids) != len(set(self.evidence_ids)):
+            raise ValueError("selected evidence IDs must be unique")
+        return self
+
+
+class SynthesisConflictSelection(BaseModel):
+    """Provider-classified competing application-owned claims."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    positions: list[SynthesisClaimSelection] = Field(min_length=2, max_length=6)
+
+
+class SynthesisUncertaintySelection(BaseModel):
+    """Provider selection of one application-owned uncertainty."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    uncertainty_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
+
+
+class SynthesisRecommendationSelection(BaseModel):
+    """Model-authored inference grounded in selected claims and evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    guidance: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    rationale: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
+    claim_ids: list[
+        Annotated[NonBlankText, StringConstraints(max_length=50)]
+    ] = Field(min_length=1, max_length=10)
+    evidence_ids: list[
+        Annotated[NonBlankText, StringConstraints(max_length=50)]
+    ] = Field(min_length=1, max_length=10)
+
+
+class SynthesisDraft(BaseModel):
+    """Provider selections before deterministic final-report assembly."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    executive_summary: list[SynthesisClaimSelection] = Field(min_length=1, max_length=5)
+    key_findings: list[SynthesisClaimSelection] = Field(min_length=1, max_length=12)
+    important_claims: list[SynthesisClaimSelection] = Field(min_length=1, max_length=20)
+    conflicts: list[SynthesisConflictSelection] = Field(default_factory=list, max_length=8)
+    uncertainties: list[SynthesisUncertaintySelection] = Field(
+        default_factory=list, max_length=12
+    )
+    recommendations: list[SynthesisRecommendationSelection] = Field(
+        default_factory=list, max_length=8
+    )
 
 
 class FinalResearchReport(BaseModel):
@@ -488,6 +609,11 @@ class FinalResearchReport(BaseModel):
         evidence_claims_by_id = {
             claim.claim_id: claim for claim in self.evidence_claims
         }
+        known_evidence = {
+            (evidence.evidence_id, evidence.source_id, evidence.evidence)
+            for claim in self.evidence_claims
+            for evidence in claim.evidence
+        }
         claims = [
             *self.executive_summary,
             *self.key_findings,
@@ -504,12 +630,17 @@ class FinalResearchReport(BaseModel):
             if claim.statement not in {item.statement for item in known_claims}:
                 raise ValueError("report statement is not a validated worker claim")
             allowed_evidence = {
-                (evidence.source_id, evidence.evidence)
+                (evidence.evidence_id, evidence.source_id, evidence.evidence)
                 for item in known_claims
                 for evidence in item.evidence
             }
             if any(
-                (citation.source_id, citation.evidence) not in allowed_evidence
+                (
+                    citation.evidence_id,
+                    citation.source_id,
+                    citation.evidence,
+                )
+                not in allowed_evidence
                 for citation in claim.citations
             ):
                 raise ValueError("report claim cites unrelated worker evidence")
@@ -522,6 +653,12 @@ class FinalResearchReport(BaseModel):
             ),
         ]
         for citation in citations:
+            if (
+                citation.evidence_id,
+                citation.source_id,
+                citation.evidence,
+            ) not in known_evidence:
+                raise ValueError("report citation references an unknown evidence ID")
             source = sources_by_id.get(citation.source_id)
             if source is None:
                 raise ValueError("report citation references an unknown source")

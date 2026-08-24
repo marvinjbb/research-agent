@@ -7,13 +7,21 @@ Favor clear interfaces, source grounding, tests, and explainable engineering dec
 
 ## Current phase
 
-Phase 4 aggregates validated successful worker results and produces a structured cited
-report behind an application-owned synthesis-provider boundary. Exact URL/claim
-deduplication, provenance, grounded citations, explicit conflicts, uncertainties, and
-failed-worker metadata are required. Automated tests mock synthesis; controlled real
-provider calls require explicit approval. Do not add fuzzy clustering, replacement
-workers, automatic retries, recursive spawning, persistence, RAG, a frontend, Docker, or
-deployment unless the project owner explicitly advances the roadmap.
+Phase 5 exposes one request-scoped `ResearchWorkflow` that composes the existing planner,
+parallel orchestrator, and synthesis service behind `POST /research`. Do not duplicate or
+redesign any phase logic. Automated tests mock major boundaries; controlled real workflow
+calls require explicit approval. Do not add background jobs, fuzzy clustering,
+replacement workers, automatic retries, recursive spawning, persistence, RAG, a frontend,
+Docker, or deployment unless the project owner explicitly advances the roadmap.
+
+Worker analysis uses immutable application-generated evidence candidates. Provider output
+may select candidate IDs only; application code owns and resolves the exact evidence text.
+Never relax this boundary with fuzzy, semantic, or case-insensitive evidence matching.
+Synthesis follows the same rule: provider output selects claim, evidence, and uncertainty
+IDs. Application code owns final factual statements, citations, sources, and uncertainty
+text; only recommendation guidance/rationale and conflict summaries may be model-authored.
+Diagnostic logs may include only application-format record IDs. Redact malformed IDs before
+logging because provider-controlled strings can otherwise contain sensitive content.
 
 ## Engineering rules
 

@@ -98,27 +98,20 @@ def standard_execution() -> ResearchExecutionResult:
     )
 
 
-def citation(source_id: str, evidence: str) -> dict[str, str]:
-    return {"source_id": source_id, "evidence": evidence}
-
-
 def valid_draft(bundle: EvidenceBundle) -> dict[str, Any]:
     first_claim = bundle.claims[0]
-    first_citation = first_claim.evidence[0].model_dump()
-    statement = {
-        "statement": first_claim.statement,
-        "claim_ids": [first_claim.claim_id],
-        "citations": [first_citation],
+    selection = {
+        "claim_id": first_claim.claim_id,
+        "evidence_ids": [first_claim.evidence[0].evidence_id],
     }
     return {
-        "executive_summary": [statement],
-        "key_findings": [statement],
-        "important_claims": [statement],
+        "executive_summary": [selection.copy()],
+        "key_findings": [selection.copy()],
+        "important_claims": [selection.copy()],
         "conflicts": [],
         "uncertainties": [
             {
-                "statement": bundle.uncertainties[0].statement,
-                "worker_ids": [bundle.uncertainties[0].worker_id],
+                "uncertainty_id": bundle.uncertainties[0].uncertainty_id,
             }
         ],
         "recommendations": [],
@@ -231,10 +224,9 @@ def test_conflicting_claims_are_preserved_in_report() -> None:
         {
             "summary": "The trials report competing outcomes.",
             "positions": [
-                {
-                    "statement": claim.statement,
-                    "claim_ids": [claim.claim_id],
-                    "citations": [claim.evidence[0].model_dump()],
+                    {
+                        "claim_id": claim.claim_id,
+                        "evidence_ids": [claim.evidence[0].evidence_id],
                 }
                 for claim in bundle.claims
             ],
@@ -268,34 +260,74 @@ def test_partial_worker_failure_is_injected_into_report() -> None:
     assert report.failed_workers[0].code == "timeout"
 
 
-def test_unknown_citation_id_is_rejected() -> None:
+def test_unknown_claim_id_is_rejected() -> None:
     bundle = EvidenceAggregator().aggregate(standard_execution())
     draft = valid_draft(bundle)
-    draft["key_findings"][0]["citations"] = [
-        citation("source-unknown", "Survey reports increased adoption.")
+    draft["key_findings"][0]["claim_id"] = "claim-unknown"
+
+    with pytest.raises(SynthesisEvidenceError):
+        asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
+
+
+def test_evidence_from_another_claim_is_rejected() -> None:
+    bundle = EvidenceAggregator().aggregate(standard_execution())
+    draft = valid_draft(bundle)
+    draft["important_claims"][0]["evidence_ids"] = [
+        bundle.claims[1].evidence[0].evidence_id
     ]
 
     with pytest.raises(SynthesisEvidenceError):
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
 
 
-def test_unsupported_evidence_is_rejected() -> None:
+def test_unknown_evidence_id_is_rejected_with_safe_diagnostic(caplog: Any) -> None:
     bundle = EvidenceAggregator().aggregate(standard_execution())
     draft = valid_draft(bundle)
-    draft["important_claims"][0]["citations"] = [
-        citation("source-1", "An unsupported excerpt.")
-    ]
+    draft["important_claims"][0]["evidence_ids"] = ["evidence-unknown"]
 
     with pytest.raises(SynthesisEvidenceError):
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
 
+    record = next(item for item in caplog.records if item.message == "synthesis_validation_failed")
+    assert record.validation_stage == "selection_resolution"
+    assert record.field_path == "important_claims.0.evidence_ids"
+    assert record.record_ids == ["<redacted-invalid-id>"]
+    assert record.error_type == "unknown_evidence_id"
+    assert "Survey reports increased adoption." not in caplog.text
 
-def test_unsupported_claim_is_rejected_even_with_known_evidence() -> None:
+
+@pytest.mark.parametrize(
+    "unsafe_id",
+    [
+        "source contents must stay private",
+        "credential-shaped-sensitive-value",
+        "provider prompt fragment",
+    ],
+)
+def test_unsafe_unknown_ids_are_redacted_from_diagnostics(
+    caplog: Any,
+    unsafe_id: str,
+) -> None:
+    bundle = EvidenceAggregator().aggregate(standard_execution())
+    draft = valid_draft(bundle)
+    draft["important_claims"][0]["evidence_ids"] = [unsafe_id]
+
+    with pytest.raises(SynthesisEvidenceError):
+        asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
+
+    assert unsafe_id not in caplog.text
+    record = next(
+        item for item in caplog.records if item.message == "synthesis_validation_failed"
+    )
+    assert record.record_ids == ["<redacted-invalid-id>"]
+
+
+def test_provider_cannot_submit_factual_statement_text() -> None:
     bundle = EvidenceAggregator().aggregate(standard_execution())
     draft = valid_draft(bundle)
     draft["important_claims"][0]["statement"] = "An invented factual claim."
 
-    with pytest.raises(SynthesisEvidenceError):
+    with pytest.raises(SynthesisProviderError):
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
 
 
@@ -353,7 +385,7 @@ def test_malformed_structured_output_is_rejected() -> None:
 def test_invented_uncertainty_is_rejected() -> None:
     bundle = EvidenceAggregator().aggregate(standard_execution())
     draft = valid_draft(bundle)
-    draft["uncertainties"][0]["statement"] = "An invented limitation."
+    draft["uncertainties"][0]["uncertainty_id"] = "uncertainty-unknown"
 
-    with pytest.raises(SynthesisEvidenceError, match="uncertainty"):
+    with pytest.raises(SynthesisEvidenceError, match="unknown record"):
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))

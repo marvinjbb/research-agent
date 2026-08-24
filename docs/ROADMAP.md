@@ -23,6 +23,7 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Define separate search and worker-analysis provider boundaries
 - Integrate bounded Tavily Basic Search and OpenAI Structured Outputs adapters
 - Enforce source-grounded claims in a structured worker result
+- Resolve model-selected immutable evidence candidate IDs into exact source excerpts
 - Use a fixed sequential search limit and deterministic test doubles
 
 ## Phase 3B — Bounded worker orchestration (complete)
@@ -32,14 +33,22 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Preserve assignment order and grounded results
 - Capture partial failures without retries or replacement workers
 
-## Phase 4 — Grounded synthesis and cited report (current)
+## Phase 4 — Grounded synthesis and cited report (complete)
 
 - Aggregate successful worker evidence with provenance
 - Deduplicate identical URLs and normalized-identical claims
 - Surface conflicts, uncertainties, and partial failures
 - Produce a validated final cited report behind a provider interface
+- Resolve provider-selected claim, evidence, and uncertainty IDs into application-owned text
 
-## Phase 5 — Evaluation and production hardening
+## Phase 5 — End-to-end research workflow (current)
+
+- Compose planning, bounded execution, and synthesis without redesigning them
+- Add `POST /research` for one complete request
+- Preserve phase-specific validation and failure policies
+- Keep all workflow state request-scoped and in memory
+
+## Phase 6 — Evaluation and production hardening
 
 - Add repeatable quality, grounding, and failure-mode evaluations
 - Improve source-quality selection and document-level deduplication

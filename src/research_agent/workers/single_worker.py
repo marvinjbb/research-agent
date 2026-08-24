@@ -1,6 +1,15 @@
+from hashlib import sha256
+
 from pydantic import ValidationError
 
-from research_agent.schemas import SearchSource, WorkerAssignment, WorkerResult
+from research_agent.schemas import (
+    ClaimEvidence,
+    EvidenceCandidate,
+    SearchSource,
+    WorkerAssignment,
+    WorkerClaim,
+    WorkerResult,
+)
 from research_agent.search.base import SearchProvider
 from research_agent.workers.base import (
     EmptySearchResultsError,
@@ -47,19 +56,61 @@ class SingleResearchWorker:
         if not sources:
             raise EmptySearchResultsError("search returned no usable sources")
 
-        analysis = await self._research_provider.analyze(assignment, sources)
+        candidates = self._build_evidence_candidates(sources)
+        analysis = await self._research_provider.analyze(assignment, candidates)
         try:
+            candidates_by_id = {
+                candidate.evidence_id: candidate for candidate in candidates
+            }
+            claims = [
+                WorkerClaim(
+                    claim=claim.claim,
+                    evidence=[
+                        ClaimEvidence(
+                            evidence_id=candidates_by_id[evidence_id].evidence_id,
+                            source_id=candidates_by_id[evidence_id].source_id,
+                            evidence=candidates_by_id[evidence_id].evidence,
+                        )
+                        for evidence_id in claim.evidence_ids
+                    ],
+                )
+                for claim in analysis.claims
+            ]
             return WorkerResult.model_validate(
                 {
                     "worker_id": assignment.worker_id,
                     "assignment": assignment,
-                    "claims": analysis.claims,
+                    "claims": claims,
                     "sources": sources,
                     "uncertainties": analysis.uncertainties,
                 }
             )
-        except ValidationError as exc:
+        except (KeyError, ValidationError) as exc:
             raise WorkerEvidenceError("worker analysis contains unsupported evidence") from exc
+
+    @staticmethod
+    def _build_evidence_candidates(
+        sources: list[SearchSource],
+    ) -> list[EvidenceCandidate]:
+        candidates: list[EvidenceCandidate] = []
+        for source in sources:
+            for offset in range(0, len(source.snippet), 1_000):
+                excerpt = source.snippet[offset : offset + 1_000]
+                if not excerpt.strip():
+                    continue
+                digest = sha256(
+                    f"{source.url}\0{offset}\0{excerpt}".encode()
+                ).hexdigest()[:32]
+                candidates.append(
+                    EvidenceCandidate(
+                        evidence_id=f"evidence-{digest}",
+                        source_id=source.source_id,
+                        source_url=source.url,
+                        source_title=source.title,
+                        evidence=excerpt,
+                    )
+                )
+        return candidates
 
     def _queries_for(self, assignment: WorkerAssignment) -> list[str]:
         queries = [f"{assignment.focused_task} {assignment.investigation_focus}"]

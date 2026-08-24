@@ -121,3 +121,52 @@ provenance, and failed-worker metadata and rejects unknown or unsupported citati
 Material-conflict classification is provider-driven in v1; the deterministic layer
 preserves every distinct claim and validates cited conflict positions but does not claim
 complete semantic conflict detection without fuzzy or embedding-based analysis.
+
+## ADR-014: Thin request-scoped workflow composition
+
+**Status:** Approved
+
+Phase 5 adds an application-owned `ResearchWorkflow` that calls the existing
+`ResearchPlanner`, bounded plan executor, and `ResearchSynthesisService` in sequence. It
+validates each application-owned handoff but adds no alternate planning, worker,
+orchestration, search, aggregation, or synthesis logic.
+
+Workflow state exists only in local variables for one HTTP request. Existing typed phase
+failures pass through for explicit endpoint mapping; only Pydantic handoff failures become
+`WorkflowValidationError`. Unexpected programming errors are not caught. The primary
+request remains `ResearchRequest`, so callers cannot choose worker count or supply state,
+queue, retry, or persistence controls.
+
+## ADR-015: Application-owned immutable evidence candidates
+
+**Status:** Approved
+
+Normalized search snippets are deterministically divided into bounded exact excerpts.
+The application assigns stable IDs in source and excerpt order and stores each candidate's
+source ID, URL, title, and exact evidence text. The worker analysis provider receives these
+candidates and returns claim text plus selected evidence IDs only.
+
+`SingleResearchWorker` rejects unknown IDs and resolves valid selections back to the
+application-owned excerpts before constructing `WorkerResult`. The provider cannot supply
+or alter evidence text. Evidence IDs remain attached through deterministic aggregation and
+final citations, and conflicting or unknown ID mappings fail validation. Existing exact
+source-containment validation remains as a second grounding check; no fuzzy matching,
+semantic similarity, embeddings, or relaxed comparison is introduced.
+
+## ADR-016: Selection-only synthesis provider contract
+
+**Status:** Approved
+
+The provider-facing `SynthesisDraft` selects application-owned claim IDs, evidence IDs,
+and uncertainty IDs instead of reproducing immutable factual text. Application code resolves
+exact claim statements, evidence excerpts, source references, and uncertainty wording into
+the existing `FinalResearchReport` models. Conflicts select competing positions by claim ID.
+
+Recommendation guidance, rationale, and conflict summaries may remain model-authored
+inference, but recommendations must select validated claim and evidence IDs. Unknown IDs or
+evidence selected from an unrelated claim fail before final report construction, and all
+existing final grounding validators remain defense in depth. Safe diagnostics contain only
+validation stage, field path, record IDs, and error type; never prompts, provider bodies,
+credentials, evidence excerpts, or source contents. Provider-returned IDs are logged only
+when they match application-generated ID formats; malformed IDs are replaced by a fixed
+redaction marker.

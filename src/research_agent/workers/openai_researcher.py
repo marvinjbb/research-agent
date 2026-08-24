@@ -4,15 +4,17 @@ from typing import Any
 from openai import APIError, APITimeoutError, AsyncOpenAI
 from pydantic import ValidationError
 
-from research_agent.schemas import SearchSource, WorkerAnalysis, WorkerAssignment
+from research_agent.schemas import EvidenceCandidate, WorkerAnalysis, WorkerAssignment
 from research_agent.workers.base import WorkerProviderError, WorkerTimeoutError
 
-SYSTEM_PROMPT = """Analyze only the supplied web-search sources for one assignment.
-Return exactly the WorkerAnalysis schema. Every factual claim must cite at least one
-supplied source_id and copy a supporting excerpt verbatim from that source's snippet. Do not use
-outside knowledge as evidence. Do not present unsupported inferences as established facts;
-record gaps, conflicts, weak coverage, and limitations under uncertainties. Do not search,
-call tools, execute other workers, or synthesize a final research report."""
+SYSTEM_PROMPT = """Analyze only the supplied application-owned evidence candidates for
+one assignment. Return exactly the WorkerAnalysis schema. Every factual claim's
+evidence_ids field must select one or more supplied evidence_id values. Never reproduce,
+edit, invent, or paraphrase
+evidence text and never invent an evidence ID. Do not use outside knowledge as evidence.
+Do not present unsupported inferences as established facts; record gaps, conflicts, weak
+coverage, and limitations under uncertainties. Do not search, call tools, execute other
+workers, or synthesize a final research report."""
 
 
 class OpenAIWorkerResearchProvider:
@@ -32,9 +34,11 @@ class OpenAIWorkerResearchProvider:
     async def analyze(
         self,
         assignment: WorkerAssignment,
-        sources: list[SearchSource],
+        evidence_candidates: list[EvidenceCandidate],
     ) -> WorkerAnalysis:
-        source_payload = [source.model_dump(mode="json") for source in sources]
+        evidence_payload = [
+            candidate.model_dump(mode="json") for candidate in evidence_candidates
+        ]
         try:
             response = await self._client.responses.parse(
                 model=self._model,
@@ -44,7 +48,8 @@ class OpenAIWorkerResearchProvider:
                         "role": "user",
                         "content": (
                             f"Assignment:\n{assignment.model_dump_json(indent=2)}\n\n"
-                            f"Sources:\n{json.dumps(source_payload, indent=2)}"
+                            "Evidence candidates:\n"
+                            f"{json.dumps(evidence_payload, indent=2)}"
                         ),
                     },
                 ],

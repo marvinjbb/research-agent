@@ -9,16 +9,14 @@ from research_agent.synthesis.base import (
     SynthesisTimeoutError,
 )
 
-SYSTEM_PROMPT = """Create a final research-report draft using only the supplied EvidenceBundle.
-Return exactly the SynthesisDraft schema. Every factual statement and recommendation must
-cite one or more supplied source_id values and copy evidence exactly from that source's
-validated_excerpts. Never invent evidence, citations, source IDs, or external knowledge.
-Every factual report statement must copy a supplied claim statement exactly, include its
-claim_id, and use only evidence attached to that claim. Keep findings, conflicts,
-uncertainties, and recommendations in their separate schema sections. Preserve materially
-competing claims as conflict positions instead of silently choosing one. Uncertainties
-must copy supplied uncertainty text exactly and attribute its worker_id. Do not search,
-call tools, retry, or execute workers."""
+SYSTEM_PROMPT = """Create final-report selections using only the supplied EvidenceBundle.
+Return exactly the SynthesisDraft schema. For executive summary, key findings, and important
+claims, select claim_id and evidence_ids attached to that claim. For conflict positions,
+select competing claim IDs and their attached evidence IDs. Select uncertainty_id values;
+never reproduce uncertainty text. Recommendations and rationales may be authored as
+inference, but must select claim_ids and evidence_ids attached to those claims. Never copy,
+edit, paraphrase, or invent factual claim text or evidence text. Never invent IDs or use
+external knowledge. Do not search, call tools, retry, or execute workers."""
 
 
 class OpenAIResearchSynthesizer:

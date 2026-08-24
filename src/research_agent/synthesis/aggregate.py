@@ -1,3 +1,4 @@
+from hashlib import sha256
 from typing import Any
 
 from research_agent.schemas import (
@@ -95,6 +96,7 @@ class EvidenceAggregator:
                     claim_data["worker_ids"].append(result.worker_id)
                 for evidence in claim.evidence:
                     aggregated = AggregatedEvidence(
+                        evidence_id=str(evidence.evidence_id),
                         source_id=source_id_map[
                             (result.worker_id, evidence.source_id)
                         ],
@@ -108,7 +110,16 @@ class EvidenceAggregator:
         ]
         overlaps = self._find_obvious_overlaps(claims)
         uncertainties = [
-            AggregatedUncertainty(worker_id=outcome.worker_id, statement=uncertainty)
+            AggregatedUncertainty(
+                uncertainty_id=(
+                    "uncertainty-"
+                    + sha256(
+                        f"{outcome.worker_id}\0{uncertainty}".encode()
+                    ).hexdigest()[:28]
+                ),
+                worker_id=outcome.worker_id,
+                statement=uncertainty,
+            )
             for outcome in successful
             for uncertainty in outcome.result.uncertainties
             if outcome.result is not None

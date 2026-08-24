@@ -46,31 +46,28 @@ def evidence_bundle() -> EvidenceBundle:
                 }
             ],
             "uncertainties": [
-                {"worker_id": "worker-1", "statement": "Evidence is limited."}
+                {
+                    "uncertainty_id": "uncertainty-1",
+                    "worker_id": "worker-1",
+                    "statement": "Evidence is limited.",
+                }
             ],
         }
     )
 
 
 def draft() -> SynthesisDraft:
-    statement = {
-        "statement": "The claim is supported.",
-        "claim_ids": ["claim-1"],
-        "citations": [
-            {
-                "source_id": "source-1",
-                "evidence": "The report supports the claim.",
-            }
-        ],
+    bundle = evidence_bundle()
+    selection = {
+        "claim_id": "claim-1",
+        "evidence_ids": [bundle.claims[0].evidence[0].evidence_id],
     }
     return SynthesisDraft.model_validate(
         {
-            "executive_summary": [statement],
-            "key_findings": [statement],
-            "important_claims": [statement],
-            "uncertainties": [
-                {"statement": "Evidence is limited.", "worker_ids": ["worker-1"]}
-            ],
+            "executive_summary": [selection],
+            "key_findings": [selection],
+            "important_claims": [selection],
+            "uncertainties": [{"uncertainty_id": "uncertainty-1"}],
         }
     )
 

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from research_agent.schemas import SearchSource, WorkerAnalysis, WorkerAssignment
+from research_agent.schemas import EvidenceCandidate, WorkerAnalysis, WorkerAssignment
 
 
 class WorkerError(Exception):
@@ -29,7 +29,7 @@ class WorkerResearchProvider(Protocol):
     async def analyze(
         self,
         assignment: WorkerAssignment,
-        sources: list[SearchSource],
+        evidence_candidates: list[EvidenceCandidate],
     ) -> WorkerAnalysis:
-        """Analyze supplied sources without performing search or tool calls."""
+        """Select supplied evidence IDs without performing search or tool calls."""
         ...

@@ -43,6 +43,7 @@ from research_agent.workers.base import (
 )
 from research_agent.workers.openai_researcher import OpenAIWorkerResearchProvider
 from research_agent.workers.single_worker import SingleResearchWorker
+from research_agent.workflow.service import ResearchWorkflow, WorkflowValidationError
 
 app = FastAPI(
     title="Research Agent",
@@ -257,4 +258,78 @@ async def synthesize_research_report(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="research synthesis provider failed",
+        ) from exc
+
+
+def get_research_workflow(
+    planner: Annotated[ResearchPlanner, Depends(get_planner)],
+    orchestrator: Annotated[
+        ParallelResearchOrchestrator,
+        Depends(get_research_orchestrator),
+    ],
+    synthesis_service: Annotated[
+        ResearchSynthesisService,
+        Depends(get_synthesis_service),
+    ],
+) -> ResearchWorkflow:
+    """Compose the proven phases into one request-scoped workflow."""
+    return ResearchWorkflow(
+        planner=planner,
+        executor=orchestrator,
+        report_service=synthesis_service,
+    )
+
+
+@app.post("/research", response_model=FinalResearchReport)
+async def run_research_workflow(
+    request: ResearchRequest,
+    workflow: Annotated[ResearchWorkflow, Depends(get_research_workflow)],
+) -> FinalResearchReport:
+    """Run planning, bounded workers, and grounded synthesis once."""
+    try:
+        return await workflow.research(request)
+    except PlannerTimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="research planning timed out",
+        ) from exc
+    except PlannerProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="research planner provider failed",
+        ) from exc
+    except AllWorkersFailedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail={
+                "message": "all research workers failed",
+                "workers": [
+                    outcome.model_dump(mode="json") for outcome in exc.outcomes
+                ],
+            },
+        ) from exc
+    except SynthesisTimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="research synthesis timed out",
+        ) from exc
+    except SynthesisEvidenceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="research synthesis contains unsupported evidence",
+        ) from exc
+    except NoSuccessfulWorkersError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail="research execution has no successful workers",
+        ) from exc
+    except SynthesisProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="research synthesis provider failed",
+        ) from exc
+    except WorkflowValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="research workflow returned invalid structured output",
         ) from exc

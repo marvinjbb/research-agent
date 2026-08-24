@@ -16,6 +16,8 @@ evidence into a cited final report.
   bounded in-process task and returns ordered success/failure outcomes.
 - `POST /research/synthesize` aggregates a validated execution and returns a grounded
   final report without rerunning workers or searching the web.
+- `POST /research` is the primary endpoint. It accepts only a question and `quick` or
+  `deep` depth, then runs the proven planning, worker, and synthesis phases once.
 - pytest and Ruff provide the initial quality gates.
 
 ## Local setup
@@ -60,15 +62,32 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/research/plan `
 The planning response does not run workers, search, or produce a report. Pass a validated
 plan to `POST /research/execute` to run its assignments.
 
-Phase 3A's isolated worker returns claims only when each claim has evidence referencing a
-known normalized source. Search is capped at two sequential queries and ten unique sources.
+Complete research request:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/research `
+  -ContentType 'application/json' `
+  -Body '{"question":"Is RAG still important?","depth":"deep"}'
+```
+
+The caller cannot select worker count. The planner remains responsible for choosing 2–5
+assignments, and all workflow state exists only for this request.
+
+Phase 3A's isolated worker deterministically creates immutable evidence candidates from
+normalized source snippets. The analysis model selects candidate IDs; application code
+resolves those IDs back to exact excerpts and rejects unknown IDs. Search is capped at two
+sequential queries and ten unique sources. Evidence IDs remain attached through aggregation
+and final citations, providing an auditable path back to application-owned candidates.
 Phase 3B uses `asyncio.gather` to execute 2–5 workers concurrently while preserving plan
 order. One failed worker does not discard successful grounded results; all-worker failure
 returns HTTP 424. Workers are attempted once with no replacement or automatic retry.
 Phase 4 deterministically deduplicates identical URLs and normalized-identical claims,
 preserves source/worker provenance, and flags obvious claim containment for provider
-review. The synthesis model can select only validated worker claims and evidence. It must
-surface competing positions explicitly and cannot invent sources or factual statements.
+review. The synthesis model selects application-owned claim, evidence, and uncertainty
+IDs; application code resolves all factual text and citations. Recommendations remain
+explicit inference grounded in selected IDs. The model cannot author report facts.
+Phase 5's `ResearchWorkflow` composes those existing phases without duplicating their
+logic or changing their failure policies.
 
 ## Project structure
 
