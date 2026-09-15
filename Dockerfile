@@ -5,10 +5,10 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 WORKDIR /build
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md requirements.lock ./
 COPY src ./src
 
-RUN python -m pip wheel --wheel-dir /wheels .
+RUN python -m pip wheel --constraint requirements.lock --wheel-dir /wheels .
 
 
 FROM python:3.12-slim AS runtime

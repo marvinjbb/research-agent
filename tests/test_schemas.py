@@ -20,4 +20,3 @@ def test_research_request_rejects_blank_question(question: str) -> None:
 def test_research_request_rejects_unknown_fields() -> None:
     with pytest.raises(ValidationError):
         ResearchRequest(question="A valid question", worker_count=10)
-

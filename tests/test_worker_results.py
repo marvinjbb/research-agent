@@ -16,9 +16,7 @@ def result_data() -> dict[str, object]:
         "claims": [
             {
                 "claim": "Adoption increased.",
-                "evidence": [
-                    {"source_id": "source-1", "evidence": "Survey reported growth."}
-                ],
+                "evidence": [{"source_id": "source-1", "evidence": "Survey reported growth."}],
             }
         ],
         "sources": [
@@ -71,9 +69,7 @@ def test_internal_quotation_marks_are_preserved() -> None:
     data["claims"] = [
         {
             "claim": "Adoption increased.",
-            "evidence": [
-                {"source_id": "source-1", "evidence": f'"{excerpt}"'}
-            ],
+            "evidence": [{"source_id": "source-1", "evidence": f'"{excerpt}"'}],
         }
     ]
 
@@ -95,9 +91,7 @@ def test_unknown_evidence_source_is_rejected() -> None:
     data["claims"] = [
         {
             "claim": "Claim",
-            "evidence": [
-                {"source_id": "source-unknown", "evidence": "Unsupported evidence"}
-            ],
+            "evidence": [{"source_id": "source-unknown", "evidence": "Unsupported evidence"}],
         }
     ]
 
@@ -110,9 +104,7 @@ def test_evidence_not_present_in_source_is_rejected() -> None:
     data["claims"] = [
         {
             "claim": "Claim",
-            "evidence": [
-                {"source_id": "source-1", "evidence": "A fact absent from the source"}
-            ],
+            "evidence": [{"source_id": "source-1", "evidence": "A fact absent from the source"}],
         }
     ]
 
@@ -125,9 +117,7 @@ def test_quoted_paraphrased_evidence_is_rejected() -> None:
     data["claims"] = [
         {
             "claim": "Claim",
-            "evidence": [
-                {"source_id": "source-1", "evidence": '"The survey showed gains."'}
-            ],
+            "evidence": [{"source_id": "source-1", "evidence": '"The survey showed gains."'}],
         }
     ]
 
@@ -140,9 +130,7 @@ def test_unmatched_outer_quote_is_not_removed() -> None:
     data["claims"] = [
         {
             "claim": "Claim",
-            "evidence": [
-                {"source_id": "source-1", "evidence": '"Survey reported growth.'}
-            ],
+            "evidence": [{"source_id": "source-1", "evidence": '"Survey reported growth.'}],
         }
     ]
 

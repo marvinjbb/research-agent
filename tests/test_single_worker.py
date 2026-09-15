@@ -157,9 +157,7 @@ def test_search_errors_are_preserved(error: Exception) -> None:
 )
 def test_provider_errors_are_preserved(error: Exception) -> None:
     with pytest.raises(type(error)):
-        asyncio.run(
-            worker(provider=FakeResearchProvider(error=error)).research(assignment())
-        )
+        asyncio.run(worker(provider=FakeResearchProvider(error=error)).research(assignment()))
 
 
 def test_unknown_provider_evidence_id_is_rejected() -> None:
@@ -192,9 +190,7 @@ def test_evidence_candidates_have_stable_ids_and_exact_source_chunks() -> None:
     candidate_ids = [item.evidence_id for item in provider.received_candidates or []]
     assert len(candidate_ids) == 2
     assert len(set(candidate_ids)) == 2
-    assert candidate_ids == [
-        item.evidence_id for item in first_run_provider.received_candidates
-    ]
+    assert candidate_ids == [item.evidence_id for item in first_run_provider.received_candidates]
     assert result.claims[0].evidence[0].evidence == "Exact second chunk."
     assert result.claims[0].evidence[0].evidence in result.sources[0].snippet
 

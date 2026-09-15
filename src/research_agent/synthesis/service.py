@@ -28,9 +28,7 @@ from research_agent.synthesis.base import (
 )
 
 logger = logging.getLogger(__name__)
-SAFE_RECORD_ID = re.compile(
-    r"(?:claim-[1-9][0-9]*|evidence-[0-9a-f]{32}|uncertainty-[0-9a-f]{28})"
-)
+SAFE_RECORD_ID = re.compile(r"(?:claim-[1-9][0-9]*|evidence-[0-9a-f]{32}|uncertainty-[0-9a-f]{28})")
 
 
 class ResearchSynthesisService:
@@ -51,9 +49,7 @@ class ResearchSynthesisService:
     ) -> FinalResearchReport:
         evidence = self._aggregator.aggregate(execution)
         try:
-            draft = SynthesisDraft.model_validate(
-                await self._synthesizer.synthesize(evidence)
-            )
+            draft = SynthesisDraft.model_validate(await self._synthesizer.synthesize(evidence))
         except ValidationError as exc:
             self._log_pydantic_failure("provider_schema", exc)
             raise SynthesisProviderError(
@@ -86,16 +82,13 @@ class ResearchSynthesisService:
     ) -> dict[str, object]:
         claims = {claim.claim_id: claim for claim in evidence.claims}
         uncertainties = {
-            uncertainty.uncertainty_id: uncertainty
-            for uncertainty in evidence.uncertainties
+            uncertainty.uncertainty_id: uncertainty for uncertainty in evidence.uncertainties
         }
         return {
             "executive_summary": self._resolve_claims(
                 draft.executive_summary, claims, "executive_summary"
             ),
-            "key_findings": self._resolve_claims(
-                draft.key_findings, claims, "key_findings"
-            ),
+            "key_findings": self._resolve_claims(draft.key_findings, claims, "key_findings"),
             "important_claims": self._resolve_claims(
                 draft.important_claims, claims, "important_claims"
             ),
@@ -193,11 +186,7 @@ class ResearchSynthesisService:
         claims: list[AggregatedClaim],
         field: str,
     ) -> list[ReportCitation]:
-        known = {
-            str(item.evidence_id): item
-            for claim in claims
-            for item in claim.evidence
-        }
+        known = {str(item.evidence_id): item for claim in claims for item in claim.evidence}
         citations: list[ReportCitation] = []
         for evidence_id in evidence_ids:
             item = known.get(evidence_id)
@@ -233,9 +222,7 @@ class ResearchSynthesisService:
                 "validation_stage": "selection_resolution",
                 "field_path": field,
                 "record_ids": [
-                    record_id
-                    if SAFE_RECORD_ID.fullmatch(record_id)
-                    else "<redacted-invalid-id>"
+                    record_id if SAFE_RECORD_ID.fullmatch(record_id) else "<redacted-invalid-id>"
                     for record_id in record_ids
                 ],
                 "error_type": error_type,

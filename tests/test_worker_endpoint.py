@@ -34,9 +34,7 @@ class FakeWorker:
             "claims": [
                 {
                     "claim": "Adoption increased.",
-                    "evidence": [
-                        {"source_id": "source-1", "evidence": "Survey reports growth."}
-                    ],
+                    "evidence": [{"source_id": "source-1", "evidence": "Survey reports growth."}],
                 }
             ],
             "sources": [

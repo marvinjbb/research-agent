@@ -1,10 +1,18 @@
+from time import perf_counter
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from research_agent.config import PlannerSettings, SynthesisSettings, TavilySettings
+from research_agent.observability import (
+    configure_logging,
+    create_request_id,
+    log_event,
+    reset_request_id,
+    set_request_id,
+)
 from research_agent.orchestration.parallel import (
     AllWorkersFailedError,
     ParallelResearchOrchestrator,
@@ -47,9 +55,11 @@ from research_agent.workers.openai_researcher import OpenAIWorkerResearchProvide
 from research_agent.workers.single_worker import SingleResearchWorker
 from research_agent.workflow.service import ResearchWorkflow, WorkflowValidationError
 
+configure_logging()
+
 app = FastAPI(
     title="Research Agent",
-    description="API foundation for a bounded multi-agent research system.",
+    description="Bounded multi-agent web research with evidence-grounded cited reports.",
     version="0.1.0",
 )
 app.add_middleware(
@@ -58,7 +68,38 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type"],
+    expose_headers=["X-Request-ID"],
 )
+
+
+@app.middleware("http")
+async def observe_request(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Add a safe correlation ID and emit bounded request telemetry."""
+    request_id = create_request_id()
+    token = set_request_id(request_id)
+    started = perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        log_event(
+            "http_request_completed",
+            path=request.url.path,
+            status_code=500,
+            duration_ms=round((perf_counter() - started) * 1_000, 2),
+            error_category="unhandled_error",
+        )
+        raise
+    else:
+        response.headers["X-Request-ID"] = request_id
+        log_event(
+            "http_request_completed",
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=round((perf_counter() - started) * 1_000, 2),
+        )
+        return response
+    finally:
+        reset_request_id(token)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -223,9 +264,7 @@ async def execute_research_plan(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             detail={
                 "message": "all research workers failed",
-                "workers": [
-                    outcome.model_dump(mode="json") for outcome in exc.outcomes
-                ],
+                "workers": [outcome.model_dump(mode="json") for outcome in exc.outcomes],
             },
         ) from exc
 
@@ -332,9 +371,7 @@ async def run_research_workflow(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             detail={
                 "message": "all research workers failed",
-                "workers": [
-                    outcome.model_dump(mode="json") for outcome in exc.outcomes
-                ],
+                "workers": [outcome.model_dump(mode="json") for outcome in exc.outcomes],
             },
         ) from exc
     except SynthesisTimeoutError as exc:

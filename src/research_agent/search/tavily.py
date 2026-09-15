@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
+from research_agent.observability import log_event
 from research_agent.schemas import SearchSource
 from research_agent.search.base import SearchProviderError, SearchTimeoutError
 
@@ -58,14 +59,36 @@ class TavilySearchProvider:
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
+            log_event(
+                "provider_call_failed",
+                component="tavily_search",
+                error_category="timeout",
+            )
             raise SearchTimeoutError("Tavily search timed out") from exc
         except (httpx.HTTPError, ValueError) as exc:
+            log_event(
+                "provider_call_failed",
+                component="tavily_search",
+                error_category="provider_failure",
+            )
             raise SearchProviderError("Tavily search failed") from exc
 
         if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
+            log_event(
+                "provider_call_failed",
+                component="tavily_search",
+                error_category="malformed_response",
+            )
             raise SearchProviderError("Tavily returned a malformed response")
 
-        return self._normalize_results(payload["results"], limit)
+        sources = self._normalize_results(payload["results"], limit)
+        log_event(
+            "provider_call_completed",
+            component="tavily_search",
+            outcome="succeeded",
+            source_count=len(sources),
+        )
+        return sources
 
     def _normalize_results(
         self,

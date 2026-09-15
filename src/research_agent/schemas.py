@@ -47,9 +47,9 @@ class WorkerAssignment(BaseModel):
     worker_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     focused_task: Annotated[NonBlankText, StringConstraints(max_length=500)]
     investigation_focus: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    evidence_to_find: list[
-        Annotated[NonBlankText, StringConstraints(max_length=300)]
-    ] = Field(min_length=1, max_length=8)
+    evidence_to_find: list[Annotated[NonBlankText, StringConstraints(max_length=300)]] = Field(
+        min_length=1, max_length=8
+    )
 
 
 class ResearchPlan(BaseModel):
@@ -73,8 +73,7 @@ class ResearchPlan(BaseModel):
             raise ValueError("worker IDs must be unique")
 
         normalized_tasks = [
-            " ".join(assignment.focused_task.casefold().split())
-            for assignment in self.assignments
+            " ".join(assignment.focused_task.casefold().split()) for assignment in self.assignments
         ]
         if len(normalized_tasks) != len(set(normalized_tasks)):
             raise ValueError("focused research tasks must be unique")
@@ -129,9 +128,7 @@ class ClaimEvidence(BaseModel):
     @model_validator(mode="after")
     def ensure_application_evidence_id(self) -> "ClaimEvidence":
         if self.evidence_id is None:
-            digest = sha256(
-                f"{self.source_id}\0{self.evidence}".encode()
-            ).hexdigest()[:32]
+            digest = sha256(f"{self.source_id}\0{self.evidence}".encode()).hexdigest()[:32]
             self.evidence_id = f"evidence-{digest}"
         return self
 
@@ -151,9 +148,9 @@ class WorkerClaimSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claim: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    evidence_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=8)
+    evidence_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=8
+    )
 
     @model_validator(mode="after")
     def validate_unique_evidence_ids(self) -> "WorkerClaimSelection":
@@ -168,9 +165,9 @@ class WorkerAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claims: list[WorkerClaimSelection] = Field(min_length=1, max_length=12)
-    uncertainties: list[
-        Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    ] = Field(min_length=1, max_length=8)
+    uncertainties: list[Annotated[NonBlankText, StringConstraints(max_length=1_000)]] = Field(
+        min_length=1, max_length=8
+    )
 
 
 class WorkerResult(BaseModel):
@@ -182,9 +179,9 @@ class WorkerResult(BaseModel):
     assignment: WorkerAssignment
     claims: list[WorkerClaim] = Field(min_length=1, max_length=12)
     sources: list[SearchSource] = Field(min_length=1, max_length=10)
-    uncertainties: list[
-        Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    ] = Field(min_length=1, max_length=8)
+    uncertainties: list[Annotated[NonBlankText, StringConstraints(max_length=1_000)]] = Field(
+        min_length=1, max_length=8
+    )
 
     @model_validator(mode="after")
     def validate_source_grounding(self) -> "WorkerResult":
@@ -202,9 +199,7 @@ class WorkerResult(BaseModel):
         sources_by_id = {source.source_id: source for source in self.sources}
         known_source_ids = set(sources_by_id)
         cited_source_ids = {
-            evidence.source_id
-            for claim in self.claims
-            for evidence in claim.evidence
+            evidence.source_id for claim in self.claims for evidence in claim.evidence
         }
         unknown_source_ids = cited_source_ids - known_source_ids
         if unknown_source_ids:
@@ -215,9 +210,7 @@ class WorkerResult(BaseModel):
             for evidence in claim.evidence:
                 source_text = sources_by_id[evidence.source_id].snippet
                 if evidence.evidence not in source_text:
-                    raise ValueError(
-                        "claim evidence must be an excerpt from the referenced source"
-                    )
+                    raise ValueError("claim evidence must be an excerpt from the referenced source")
 
         return self
 
@@ -283,10 +276,7 @@ class ResearchExecutionResult(BaseModel):
         worker_ids = [worker.worker_id for worker in self.workers]
         if len(worker_ids) != len(set(worker_ids)):
             raise ValueError("worker outcome IDs must be unique")
-        if not any(
-            worker.status is WorkerExecutionStatus.SUCCEEDED
-            for worker in self.workers
-        ):
+        if not any(worker.status is WorkerExecutionStatus.SUCCEEDED for worker in self.workers):
             raise ValueError("at least one worker must succeed")
         return self
 
@@ -312,9 +302,9 @@ class AggregatedSource(BaseModel):
         min_length=1,
         max_length=5,
     )
-    validated_excerpts: list[
-        Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    ] = Field(default_factory=list, max_length=480)
+    validated_excerpts: list[Annotated[NonBlankText, StringConstraints(max_length=1_000)]] = Field(
+        default_factory=list, max_length=480
+    )
     provenance: list[SourceProvenance] = Field(min_length=1, max_length=5)
     publisher: Annotated[NonBlankText, StringConstraints(max_length=300)] | None = None
 
@@ -324,9 +314,7 @@ class AggregatedSource(BaseModel):
             raise ValueError("aggregated source snippets must be unique")
         if len(self.validated_excerpts) != len(set(self.validated_excerpts)):
             raise ValueError("validated source excerpts must be unique")
-        provenance_keys = {
-            (item.worker_id, item.worker_source_id) for item in self.provenance
-        }
+        provenance_keys = {(item.worker_id, item.worker_source_id) for item in self.provenance}
         if len(provenance_keys) != len(self.provenance):
             raise ValueError("source provenance records must be unique")
         if any(
@@ -349,9 +337,7 @@ class AggregatedEvidence(BaseModel):
     @model_validator(mode="after")
     def ensure_application_evidence_id(self) -> "AggregatedEvidence":
         if self.evidence_id is None:
-            digest = sha256(
-                f"{self.source_id}\0{self.evidence}".encode()
-            ).hexdigest()[:32]
+            digest = sha256(f"{self.source_id}\0{self.evidence}".encode()).hexdigest()[:32]
             self.evidence_id = f"evidence-{digest}"
         return self
 
@@ -364,9 +350,9 @@ class AggregatedClaim(BaseModel):
     claim_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
     statement: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
     evidence: list[AggregatedEvidence] = Field(min_length=1, max_length=40)
-    worker_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=5)
+    worker_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=5
+    )
 
 
 class ClaimOverlap(BaseModel):
@@ -374,9 +360,9 @@ class ClaimOverlap(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    claim_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=2, max_length=12)
+    claim_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=2, max_length=12
+    )
 
 
 class AggregatedUncertainty(BaseModel):
@@ -469,9 +455,7 @@ class ReportCitation(BaseModel):
     @model_validator(mode="after")
     def ensure_application_evidence_id(self) -> "ReportCitation":
         if self.evidence_id is None:
-            digest = sha256(
-                f"{self.source_id}\0{self.evidence}".encode()
-            ).hexdigest()[:32]
+            digest = sha256(f"{self.source_id}\0{self.evidence}".encode()).hexdigest()[:32]
             self.evidence_id = f"evidence-{digest}"
         return self
 
@@ -482,9 +466,9 @@ class CitedReportClaim(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     statement: Annotated[NonBlankText, StringConstraints(max_length=1_500)]
-    claim_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=10)
+    claim_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=10
+    )
     citations: list[ReportCitation] = Field(min_length=1, max_length=10)
 
 
@@ -503,9 +487,9 @@ class ReportUncertainty(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     statement: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    worker_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=5)
+    worker_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=5
+    )
 
 
 class ReportRecommendation(BaseModel):
@@ -524,9 +508,9 @@ class SynthesisClaimSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claim_id: Annotated[NonBlankText, StringConstraints(max_length=50)]
-    evidence_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=10)
+    evidence_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=10
+    )
 
     @model_validator(mode="after")
     def validate_unique_evidence_ids(self) -> "SynthesisClaimSelection":
@@ -559,12 +543,12 @@ class SynthesisRecommendationSelection(BaseModel):
 
     guidance: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
     rationale: Annotated[NonBlankText, StringConstraints(max_length=1_000)]
-    claim_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=10)
-    evidence_ids: list[
-        Annotated[NonBlankText, StringConstraints(max_length=50)]
-    ] = Field(min_length=1, max_length=10)
+    claim_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=10
+    )
+    evidence_ids: list[Annotated[NonBlankText, StringConstraints(max_length=50)]] = Field(
+        min_length=1, max_length=10
+    )
 
 
 class SynthesisDraft(BaseModel):
@@ -576,9 +560,7 @@ class SynthesisDraft(BaseModel):
     key_findings: list[SynthesisClaimSelection] = Field(min_length=1, max_length=12)
     important_claims: list[SynthesisClaimSelection] = Field(min_length=1, max_length=20)
     conflicts: list[SynthesisConflictSelection] = Field(default_factory=list, max_length=8)
-    uncertainties: list[SynthesisUncertaintySelection] = Field(
-        default_factory=list, max_length=12
-    )
+    uncertainties: list[SynthesisUncertaintySelection] = Field(default_factory=list, max_length=12)
     recommendations: list[SynthesisRecommendationSelection] = Field(
         default_factory=list, max_length=8
     )
@@ -606,9 +588,7 @@ class FinalResearchReport(BaseModel):
     def validate_report_grounding(self) -> "FinalResearchReport":
         _validate_claim_catalog(self.sources, self.evidence_claims)
         sources_by_id = {source.source_id: source for source in self.sources}
-        evidence_claims_by_id = {
-            claim.claim_id: claim for claim in self.evidence_claims
-        }
+        evidence_claims_by_id = {claim.claim_id: claim for claim in self.evidence_claims}
         known_evidence = {
             (evidence.evidence_id, evidence.source_id, evidence.evidence)
             for claim in self.evidence_claims
@@ -666,9 +646,7 @@ class FinalResearchReport(BaseModel):
                 raise ValueError("report citation is not validated worker evidence")
 
         successful_worker_ids = {
-            provenance.worker_id
-            for source in self.sources
-            for provenance in source.provenance
+            provenance.worker_id for source in self.sources for provenance in source.provenance
         }
         for uncertainty in self.uncertainties:
             if not set(uncertainty.worker_ids) <= successful_worker_ids:

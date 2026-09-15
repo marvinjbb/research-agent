@@ -224,18 +224,16 @@ def test_conflicting_claims_are_preserved_in_report() -> None:
         {
             "summary": "The trials report competing outcomes.",
             "positions": [
-                    {
-                        "claim_id": claim.claim_id,
-                        "evidence_ids": [claim.evidence[0].evidence_id],
+                {
+                    "claim_id": claim.claim_id,
+                    "evidence_ids": [claim.evidence[0].evidence_id],
                 }
                 for claim in bundle.claims
             ],
         }
     ]
 
-    report = asyncio.run(
-        service(FakeSynthesizer(draft)).synthesize(research_execution)
-    )
+    report = asyncio.run(service(FakeSynthesizer(draft)).synthesize(research_execution))
 
     assert len(report.conflicts) == 1
     assert len(report.conflicts[0].positions) == 2
@@ -252,9 +250,7 @@ def test_partial_worker_failure_is_injected_into_report() -> None:
         failed_outcome("worker-2"),
     )
 
-    report = asyncio.run(
-        service(FakeSynthesizer()).synthesize(research_execution)
-    )
+    report = asyncio.run(service(FakeSynthesizer()).synthesize(research_execution))
 
     assert report.failed_workers[0].worker_id == "worker-2"
     assert report.failed_workers[0].code == "timeout"
@@ -272,9 +268,7 @@ def test_unknown_claim_id_is_rejected() -> None:
 def test_evidence_from_another_claim_is_rejected() -> None:
     bundle = EvidenceAggregator().aggregate(standard_execution())
     draft = valid_draft(bundle)
-    draft["important_claims"][0]["evidence_ids"] = [
-        bundle.claims[1].evidence[0].evidence_id
-    ]
+    draft["important_claims"][0]["evidence_ids"] = [bundle.claims[1].evidence[0].evidence_id]
 
     with pytest.raises(SynthesisEvidenceError):
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
@@ -316,9 +310,7 @@ def test_unsafe_unknown_ids_are_redacted_from_diagnostics(
         asyncio.run(service(FakeSynthesizer(draft)).synthesize(standard_execution()))
 
     assert unsafe_id not in caplog.text
-    record = next(
-        item for item in caplog.records if item.message == "synthesis_validation_failed"
-    )
+    record = next(item for item in caplog.records if item.message == "synthesis_validation_failed")
     assert record.record_ids == ["<redacted-invalid-id>"]
 
 
@@ -368,9 +360,7 @@ def test_all_worker_failure_input_is_rejected() -> None:
 )
 def test_synthesis_provider_errors_are_preserved(error: Exception) -> None:
     with pytest.raises(type(error)):
-        asyncio.run(
-            service(FakeSynthesizer(error=error)).synthesize(standard_execution())
-        )
+        asyncio.run(service(FakeSynthesizer(error=error)).synthesize(standard_execution()))
 
 
 def test_malformed_structured_output_is_rejected() -> None:

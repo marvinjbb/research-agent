@@ -3,6 +3,7 @@ from typing import Any
 from openai import APIError, APITimeoutError, AsyncOpenAI
 from pydantic import ValidationError
 
+from research_agent.observability import log_event
 from research_agent.planning.base import PlannerProviderError, PlannerTimeoutError
 from research_agent.schemas import ResearchPlan, ResearchRequest
 
@@ -48,10 +49,31 @@ class OpenAIResearchPlanner:
             if response.output_parsed is None:
                 raise PlannerProviderError("provider returned no structured research plan")
             plan = ResearchPlan.model_validate(response.output_parsed)
+            log_event(
+                "provider_call_completed",
+                component="openai_planner",
+                model=self._model,
+                outcome="succeeded",
+            )
             return plan.model_copy(update={"original_question": request.question})
         except (APITimeoutError, TimeoutError) as exc:
+            log_event(
+                "provider_call_failed",
+                component="openai_planner",
+                error_category="timeout",
+            )
             raise PlannerTimeoutError("research planning timed out") from exc
         except PlannerProviderError:
+            log_event(
+                "provider_call_failed",
+                component="openai_planner",
+                error_category="missing_structured_output",
+            )
             raise
         except (APIError, ValidationError) as exc:
+            log_event(
+                "provider_call_failed",
+                component="openai_planner",
+                error_category="provider_or_validation_failure",
+            )
             raise PlannerProviderError("provider failed to create a valid research plan") from exc

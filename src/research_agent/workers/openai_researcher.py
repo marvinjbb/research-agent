@@ -4,6 +4,7 @@ from typing import Any
 from openai import APIError, APITimeoutError, AsyncOpenAI
 from pydantic import ValidationError
 
+from research_agent.observability import log_event
 from research_agent.schemas import EvidenceCandidate, WorkerAnalysis, WorkerAssignment
 from research_agent.workers.base import WorkerProviderError, WorkerTimeoutError
 
@@ -36,9 +37,7 @@ class OpenAIWorkerResearchProvider:
         assignment: WorkerAssignment,
         evidence_candidates: list[EvidenceCandidate],
     ) -> WorkerAnalysis:
-        evidence_payload = [
-            candidate.model_dump(mode="json") for candidate in evidence_candidates
-        ]
+        evidence_payload = [candidate.model_dump(mode="json") for candidate in evidence_candidates]
         try:
             response = await self._client.responses.parse(
                 model=self._model,
@@ -57,10 +56,32 @@ class OpenAIWorkerResearchProvider:
             )
             if response.output_parsed is None:
                 raise WorkerProviderError("provider returned no structured worker analysis")
-            return WorkerAnalysis.model_validate(response.output_parsed)
+            analysis = WorkerAnalysis.model_validate(response.output_parsed)
+            log_event(
+                "provider_call_completed",
+                component="openai_worker",
+                model=self._model,
+                outcome="succeeded",
+            )
+            return analysis
         except (APITimeoutError, TimeoutError) as exc:
+            log_event(
+                "provider_call_failed",
+                component="openai_worker",
+                error_category="timeout",
+            )
             raise WorkerTimeoutError("worker analysis timed out") from exc
         except WorkerProviderError:
+            log_event(
+                "provider_call_failed",
+                component="openai_worker",
+                error_category="missing_structured_output",
+            )
             raise
         except (APIError, ValidationError) as exc:
+            log_event(
+                "provider_call_failed",
+                component="openai_worker",
+                error_category="provider_or_validation_failure",
+            )
             raise WorkerProviderError("provider failed to create worker analysis") from exc

@@ -6,6 +6,7 @@ from time import monotonic
 from fastapi import HTTPException, status
 
 from research_agent.config import PublicApiSettings
+from research_agent.observability import log_event
 
 
 class PublicResearchLimiter:
@@ -35,6 +36,12 @@ class PublicResearchLimiter:
                 self._accepted_at.popleft()
 
             if self._active >= self._max_concurrent:
+                log_event(
+                    "public_request_rejected",
+                    reason="concurrency_limit",
+                    active_count=self._active,
+                    max_concurrent=self._max_concurrent,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="research service is currently at capacity",
@@ -42,6 +49,12 @@ class PublicResearchLimiter:
                 )
             if len(self._accepted_at) >= self._request_limit:
                 retry_after = max(1, int(self._accepted_at[0] + self._window_seconds - now))
+                log_event(
+                    "public_request_rejected",
+                    reason="window_limit",
+                    request_limit=self._request_limit,
+                    window_seconds=self._window_seconds,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="public research request limit reached",

@@ -67,19 +67,11 @@ def test_worker_provider_failure_is_normalized() -> None:
     error = APIConnectionError(request=httpx.Request("POST", "https://example.test"))
 
     with pytest.raises(WorkerProviderError):
-        asyncio.run(
-            provider_with(AsyncMock(side_effect=error)).analyze(
-                assignment(), candidates()
-            )
-        )
+        asyncio.run(provider_with(AsyncMock(side_effect=error)).analyze(assignment(), candidates()))
 
 
 def test_worker_provider_timeout_is_normalized() -> None:
     error = APITimeoutError(request=httpx.Request("POST", "https://example.test"))
 
     with pytest.raises(WorkerTimeoutError):
-        asyncio.run(
-            provider_with(AsyncMock(side_effect=error)).analyze(
-                assignment(), candidates()
-            )
-        )
+        asyncio.run(provider_with(AsyncMock(side_effect=error)).analyze(assignment(), candidates()))

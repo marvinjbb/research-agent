@@ -94,9 +94,7 @@ def execution_for(
 
 
 def report_for(execution: ResearchExecutionResult) -> FinalResearchReport:
-    successful = next(
-        outcome for outcome in execution.workers if outcome.result is not None
-    )
+    successful = next(outcome for outcome in execution.workers if outcome.result is not None)
     result = successful.result
     assert result is not None
     claim = result.claims[0]
@@ -271,9 +269,7 @@ def test_all_worker_failure_is_preserved() -> None:
         WorkerExecutionOutcome.model_validate(failed_outcome(item))
         for item in research_plan.assignments
     ]
-    service, _, _, _ = workflow(
-        executor=FakeExecutor(error=AllWorkersFailedError(outcomes))
-    )
+    service, _, _, _ = workflow(executor=FakeExecutor(error=AllWorkersFailedError(outcomes)))
 
     with pytest.raises(AllWorkersFailedError):
         asyncio.run(service.research(ResearchRequest(question="Question?")))

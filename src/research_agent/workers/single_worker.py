@@ -2,6 +2,7 @@ from hashlib import sha256
 
 from pydantic import ValidationError
 
+from research_agent.observability import log_event
 from research_agent.schemas import (
     ClaimEvidence,
     EvidenceCandidate,
@@ -56,12 +57,16 @@ class SingleResearchWorker:
         if not sources:
             raise EmptySearchResultsError("search returned no usable sources")
 
+        log_event(
+            "research_sources_normalized",
+            worker_id=assignment.worker_id,
+            source_count=len(sources),
+        )
+
         candidates = self._build_evidence_candidates(sources)
         analysis = await self._research_provider.analyze(assignment, candidates)
         try:
-            candidates_by_id = {
-                candidate.evidence_id: candidate for candidate in candidates
-            }
+            candidates_by_id = {candidate.evidence_id: candidate for candidate in candidates}
             claims = [
                 WorkerClaim(
                     claim=claim.claim,
@@ -98,9 +103,7 @@ class SingleResearchWorker:
                 excerpt = source.snippet[offset : offset + 1_000]
                 if not excerpt.strip():
                     continue
-                digest = sha256(
-                    f"{source.url}\0{offset}\0{excerpt}".encode()
-                ).hexdigest()[:32]
+                digest = sha256(f"{source.url}\0{offset}\0{excerpt}".encode()).hexdigest()[:32]
                 candidates.append(
                     EvidenceCandidate(
                         evidence_id=f"evidence-{digest}",

@@ -57,9 +57,7 @@ def test_request_depth_is_passed_to_provider(depth: ResearchDepth) -> None:
 
 
 def test_provider_failure_is_normalized() -> None:
-    provider_failure = APIConnectionError(
-        request=httpx.Request("POST", "https://example.test")
-    )
+    provider_failure = APIConnectionError(request=httpx.Request("POST", "https://example.test"))
     planner = planner_with(AsyncMock(side_effect=provider_failure))
 
     with pytest.raises(PlannerProviderError):

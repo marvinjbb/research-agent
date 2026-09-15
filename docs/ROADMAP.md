@@ -1,6 +1,7 @@
 # Roadmap
 
-Work proceeds one bounded phase at a time. Advancing a phase requires explicit approval.
+The production v1 workflow and container deployment are complete. Future work should be
+driven by measured reliability, quality, and traffic needs rather than phase labels.
 
 ## Phase 1 — Foundation (complete)
 
@@ -48,7 +49,7 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Preserve phase-specific validation and failure policies
 - Keep all workflow state request-scoped and in memory
 
-## Phase 6 — Production container packaging (current)
+## Production container and safeguards (complete)
 
 - Build a multi-stage Python 3.12 production image
 - Run Uvicorn as a non-root user on internal port 8000
@@ -59,14 +60,18 @@ Work proceeds one bounded phase at a time. Advancing a phase requires explicit a
 - Add bounded single-container request and concurrency cost controls
 - Document the reverse-proxy timeout requirement without adding VPS configuration
 
-## Phase 7 — Evaluation and production hardening
+## Highest-value next work
 
-- Add repeatable quality, grounding, and failure-mode evaluations
-- Improve source-quality selection and document-level deduplication
-- Add cost, timeout, and abuse controls
+- Add a repeatable, scored provider evaluation dataset and harness.
+- Measure search relevance, source authority/freshness, semantic claim support, conflict
+  recall, latency, and per-request cost.
+- Add a bounded overall workflow deadline and usage telemetry.
+- Evaluate full-document retrieval before expanding source or worker budgets.
+- Decide whether to restrict intermediate phase endpoints and OpenAPI in production.
+- Move to durable asynchronous jobs and shared quotas only if real traffic requires them.
 
 ## Explicitly deferred
 
 Persistence, RAG, vector storage, long-term memory, repository-owned Nginx configuration,
-and distributed deployment infrastructure remain outside the current scope. They should
-be added only when a demonstrated requirement justifies them.
+automatic retries, and distributed deployment infrastructure remain outside the current
+scope. They should be added only when a demonstrated requirement justifies them.

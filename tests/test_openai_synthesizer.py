@@ -27,9 +27,7 @@ def evidence_bundle() -> EvidenceBundle:
                     "url": "https://example.com/report",
                     "snippets": ["The report supports the claim."],
                     "validated_excerpts": ["The report supports the claim."],
-                    "provenance": [
-                        {"worker_id": "worker-1", "worker_source_id": "source-1"}
-                    ],
+                    "provenance": [{"worker_id": "worker-1", "worker_source_id": "source-1"}],
                 }
             ],
             "claims": [
@@ -97,18 +95,14 @@ def test_synthesis_adapter_normalizes_provider_failure() -> None:
     error = APIConnectionError(request=httpx.Request("POST", "https://example.test"))
 
     with pytest.raises(SynthesisProviderError):
-        asyncio.run(
-            provider_with(AsyncMock(side_effect=error)).synthesize(evidence_bundle())
-        )
+        asyncio.run(provider_with(AsyncMock(side_effect=error)).synthesize(evidence_bundle()))
 
 
 def test_synthesis_adapter_normalizes_timeout() -> None:
     error = APITimeoutError(request=httpx.Request("POST", "https://example.test"))
 
     with pytest.raises(SynthesisTimeoutError):
-        asyncio.run(
-            provider_with(AsyncMock(side_effect=error)).synthesize(evidence_bundle())
-        )
+        asyncio.run(provider_with(AsyncMock(side_effect=error)).synthesize(evidence_bundle()))
 
 
 def test_synthesis_adapter_rejects_empty_structured_output() -> None:

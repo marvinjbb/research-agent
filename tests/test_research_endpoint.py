@@ -35,9 +35,7 @@ def final_report(question: str) -> FinalResearchReport:
             "executive_summary": [statement],
             "key_findings": [statement],
             "important_claims": [statement],
-            "uncertainties": [
-                {"statement": "Evidence is limited.", "worker_ids": ["worker-1"]}
-            ],
+            "uncertainties": [{"statement": "Evidence is limited.", "worker_ids": ["worker-1"]}],
             "evidence_claims": [
                 {
                     "claim_id": "claim-1",
@@ -53,9 +51,7 @@ def final_report(question: str) -> FinalResearchReport:
                     "url": "https://example.com/source",
                     "snippets": [evidence],
                     "validated_excerpts": [evidence],
-                    "provenance": [
-                        {"worker_id": "worker-1", "worker_source_id": "source-1"}
-                    ],
+                    "provenance": [{"worker_id": "worker-1", "worker_source_id": "source-1"}],
                 }
             ],
         }
@@ -167,6 +163,7 @@ def test_all_workers_failed_returns_ordered_failure_metadata() -> None:
     response = request_with(FakeWorkflow(AllWorkersFailedError(outcomes)))
 
     assert response.status_code == 424
-    assert [
-        worker["worker_id"] for worker in response.json()["detail"]["workers"]
-    ] == ["worker-1", "worker-2"]
+    assert [worker["worker_id"] for worker in response.json()["detail"]["workers"]] == [
+        "worker-1",
+        "worker-2",
+    ]

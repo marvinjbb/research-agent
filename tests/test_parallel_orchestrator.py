@@ -93,15 +93,10 @@ def orchestrator(
 def test_executes_every_bounded_worker(worker_count: int) -> None:
     research_plan = plan(worker_count)
 
-    execution = asyncio.run(
-        orchestrator(result_for).execute(research_plan)
-    )
+    execution = asyncio.run(orchestrator(result_for).execute(research_plan))
 
     assert len(execution.workers) == worker_count
-    assert all(
-        outcome.status is WorkerExecutionStatus.SUCCEEDED
-        for outcome in execution.workers
-    )
+    assert all(outcome.status is WorkerExecutionStatus.SUCCEEDED for outcome in execution.workers)
 
 
 def test_completion_order_does_not_change_assignment_order() -> None:
@@ -131,9 +126,11 @@ def test_one_failure_returns_remaining_successes() -> None:
 
     execution = asyncio.run(
         orchestrator(
-            lambda assignment: WorkerProviderError()
-            if assignment.worker_id == "worker-1"
-            else result_for(assignment)
+            lambda assignment: (
+                WorkerProviderError()
+                if assignment.worker_id == "worker-1"
+                else result_for(assignment)
+            )
         ).execute(research_plan)
     )
 
@@ -144,9 +141,7 @@ def test_one_failure_returns_remaining_successes() -> None:
 
 def test_all_workers_failing_raises_job_error() -> None:
     with pytest.raises(AllWorkersFailedError) as exc_info:
-        asyncio.run(
-            orchestrator(lambda assignment: WorkerProviderError()).execute(plan(2))
-        )
+        asyncio.run(orchestrator(lambda assignment: WorkerProviderError()).execute(plan(2)))
 
     assert [outcome.worker_id for outcome in exc_info.value.outcomes] == [
         "worker-1",
@@ -158,9 +153,11 @@ def test_all_workers_failing_raises_job_error() -> None:
 def test_worker_timeout_is_captured_when_another_worker_succeeds() -> None:
     execution = asyncio.run(
         orchestrator(
-            lambda assignment: WorkerTimeoutError()
-            if assignment.worker_id == "worker-1"
-            else result_for(assignment)
+            lambda assignment: (
+                WorkerTimeoutError()
+                if assignment.worker_id == "worker-1"
+                else result_for(assignment)
+            )
         ).execute(plan(2))
     )
 
@@ -171,9 +168,11 @@ def test_worker_timeout_is_captured_when_another_worker_succeeds() -> None:
 def test_malformed_worker_result_is_captured() -> None:
     execution = asyncio.run(
         orchestrator(
-            lambda assignment: {"worker_id": assignment.worker_id}
-            if assignment.worker_id == "worker-1"
-            else result_for(assignment)
+            lambda assignment: (
+                {"worker_id": assignment.worker_id}
+                if assignment.worker_id == "worker-1"
+                else result_for(assignment)
+            )
         ).execute(plan(2))
     )
 

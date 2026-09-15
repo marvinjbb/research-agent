@@ -5,12 +5,12 @@
 Build a production-minded but deliberately bounded research-agent portfolio project.
 Favor clear interfaces, source grounding, tests, and explainable engineering decisions.
 
-## Current phase
+## Current system
 
-Phase 5 exposes one request-scoped `ResearchWorkflow` that composes the existing planner,
+The deployed service exposes one request-scoped `ResearchWorkflow` that composes the planner,
 parallel orchestrator, and synthesis service behind `POST /research`. Do not duplicate or
 redesign any phase logic. Automated tests mock major boundaries; controlled real workflow
-calls require explicit approval. The deployment phase packages this same service as one
+calls require explicit approval. Production packaging runs this same service as one
 non-root container; provider credentials remain runtime environment variables. Do not add
 background jobs, fuzzy clustering,
 replacement workers, automatic retries, recursive spawning, persistence, RAG, a frontend,
@@ -30,7 +30,7 @@ logging because provider-controlled strings can otherwise contain sensitive cont
 - Use Python 3.12 and FastAPI.
 - Keep request and response contracts in Pydantic models.
 - Add tests for observable behavior and validation rules.
-- Run `ruff check .` and `pytest` after changes.
+- Run `ruff check .`, `ruff format --check .`, and `pytest` after changes.
 - Never commit secrets. Document future variable names in `.env.example`.
 - Keep workers as bounded concurrent tasks within one Python service; do not turn them
   into independently deployed services without a new approved decision.

@@ -1,11 +1,11 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "research-agent"
 version = "0.1.0"
-description = "POC foundation for a bounded multi-agent research system"
+description = "Bounded multi-agent web research with evidence-grounded cited reports"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

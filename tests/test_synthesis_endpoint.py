@@ -86,9 +86,7 @@ def final_report() -> FinalResearchReport:
             "executive_summary": [statement],
             "key_findings": [statement],
             "important_claims": [statement],
-            "uncertainties": [
-                {"statement": "Evidence is limited.", "worker_ids": ["worker-1"]}
-            ],
+            "uncertainties": [{"statement": "Evidence is limited.", "worker_ids": ["worker-1"]}],
             "evidence_claims": [
                 {
                     "claim_id": "claim-1",
@@ -109,9 +107,7 @@ def final_report() -> FinalResearchReport:
                     "url": "https://example.com/report",
                     "snippets": ["The report supports the claim."],
                     "validated_excerpts": ["The report supports the claim."],
-                    "provenance": [
-                        {"worker_id": "worker-1", "worker_source_id": "source-1"}
-                    ],
+                    "provenance": [{"worker_id": "worker-1", "worker_source_id": "source-1"}],
                 }
             ],
             "failed_workers": [

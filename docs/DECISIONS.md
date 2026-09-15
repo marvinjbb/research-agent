@@ -5,7 +5,8 @@
 **Status:** Approved
 
 Workers will be concurrent tasks inside the FastAPI service, not separate deployed
-services. This keeps the POC operationally simple while preserving logical boundaries.
+services. This keeps the portfolio deployment operationally simple while preserving
+logical boundaries.
 
 ## ADR-002: Bounded orchestration
 
@@ -18,8 +19,8 @@ or unlimited spawning is prohibited, providing predictable cost and execution bo
 
 **Status:** Approved
 
-Workers will eventually return structured findings, sources, claims, and uncertainties.
-The final report must cite its sources. Search/retrieval fits this use case; no RAG,
+Workers return structured findings, sources, claims, and uncertainties. The final report
+must cite its sources. Search/retrieval fits this use case; no RAG,
 vector database, or long-term memory is needed for v1.
 
 ## ADR-004: No persistence initially
@@ -202,3 +203,17 @@ single-container portfolio deployment. It does not trust forwarded client IP hea
 requires no Redis or database, and places a deterministic ceiling on concurrent provider
 spend. Counters reset when the container restarts and will not coordinate across future
 replicas; a shared limiter would require a new decision if the deployment scales out.
+
+## ADR-019: Safe structured request and workflow telemetry
+
+**Status:** Approved
+
+The service emits one-line JSON operational events with an application request ID. The
+allowlisted fields cover route/status/duration, research mode, planner worker count,
+per-worker outcome/duration/source count, total workflow outcome, and safe provider or
+rate-limit failure categories. Successful HTTP responses expose `X-Request-ID` for support
+correlation.
+
+Research questions, prompts, source/evidence content, provider response bodies, cookies,
+sensitive headers, and credentials are excluded by design. Telemetry is process output,
+not a persistent audit store; metrics and distributed traces remain future work.

@@ -60,9 +60,7 @@ def test_duplicate_and_invalid_results_are_filtered() -> None:
         {"title": "Invalid URL", "url": "not-a-url", "content": "Evidence C"},
         {"title": "Missing content", "url": "https://example.com/d", "content": ""},
     ]
-    provider = provider_with(
-        lambda request: httpx.Response(200, json={"results": results})
-    )
+    provider = provider_with(lambda request: httpx.Response(200, json={"results": results}))
 
     sources = asyncio.run(provider.search("focused query", limit=5))
 

@@ -64,9 +64,7 @@ class FakeOrchestrator:
                         "claims": [
                             {
                                 "claim": "Grounded claim.",
-                                "evidence": [
-                                    {"source_id": "source-1", "evidence": evidence}
-                                ],
+                                "evidence": [{"source_id": "source-1", "evidence": evidence}],
                             }
                         ],
                         "sources": [
