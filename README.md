@@ -1,8 +1,10 @@
 # Research Agent
 
-An evidence-grounded, bounded multi-agent research service. One question becomes a
-validated plan, 2–5 focused parallel investigations, deterministic evidence aggregation,
-and a cited report whose factual text is resolved from application-owned records.
+## What it is
+
+This is a working AI research system that takes one broad question, breaks it into smaller
+research tasks, searches multiple sources in parallel, keeps track of the evidence behind
+each finding, and produces one final cited report.
 
 [Try the live demo](https://marvinjb.dev/demo/research) ·
 [Production API](https://api.marvinjb.dev/research) ·
@@ -13,14 +15,36 @@ and a cited report whose factual text is resolved from application-owned records
 The portfolio demo is provider-backed. Ordinary development and CI are offline: tests use
 injected fakes and never call OpenAI, Tavily, or production.
 
-## Why this exists
+## Why it exists
 
-Useful research automation needs more than an LLM-generated answer. It needs bounded work,
-traceable sources, explicit uncertainty, visible disagreement, and validation that prevents
-the model from inventing evidence. This project demonstrates those controls in a compact
-Python service without pretending to solve web-scale retrieval.
+The goal is to make multi-step AI research more traceable, validated, and reliable than a
+single free-form model response. The system keeps source evidence connected to each finding,
+surfaces uncertainty and disagreement, and rejects references that were not collected during
+the research process.
 
-## Workflow
+## How it works
+
+1. Ask one question.
+2. Break it into 2–5 research tasks.
+3. Search multiple sources.
+4. Collect and validate evidence.
+5. Combine findings.
+6. Write the final cited report.
+
+## What makes it reliable
+
+- **Evidence is application-owned:** the application creates immutable evidence records from
+  search results; models select their IDs instead of rewriting the source excerpts.
+- **Invalid IDs are rejected:** unknown claim, evidence, source, and uncertainty references
+  fail validation.
+- **Multiple tasks are bounded:** every plan contains 2–5 focused tasks, with fixed limits on
+  searches, sources, concurrency, and public requests.
+- **Failed tasks are surfaced:** successful research may continue when one task fails, while
+  failed-task metadata remains visible; all-task failure stops the workflow.
+- **Final synthesis uses validated inputs:** the report can select only approved claims,
+  evidence, and uncertainties collected earlier in the workflow.
+
+## Technical workflow
 
 ```mermaid
 flowchart LR
