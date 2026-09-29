@@ -1,14 +1,15 @@
 # Research Agent
 
-## What it is
-
-This is a working AI research system that takes one broad question, breaks it into smaller
-research tasks, searches multiple sources in parallel, keeps track of the evidence behind
-each finding, and produces one final cited report.
+Research Agent is a production-deployed AI research system that decomposes a broad
+question into bounded research tasks, searches multiple sources in parallel, preserves
+application-owned evidence, and returns a validated cited report.
 
 [Try the live demo](https://marvinjb.dev/demo/research) ·
 [Production API](https://api.marvinjb.dev/research) ·
 [Architecture](docs/ARCHITECTURE.md) · [Evaluation](docs/EVALUATION.md)
+
+**Stack:** Python · FastAPI · Pydantic · OpenAI Responses API / Structured Outputs ·
+Tavily Basic Search · asyncio · Docker · Nginx
 
 ![Completed Research Agent report](docs/assets/research-agent-demo.png)
 
@@ -17,10 +18,16 @@ injected fakes and never call OpenAI, Tavily, or production.
 
 ## Why it exists
 
-The goal is to make multi-step AI research more traceable, validated, and reliable than a
-single free-form model response. The system keeps source evidence connected to each finding,
-surfaces uncertainty and disagreement, and rejects references that were not collected during
-the research process.
+The goal is to make multi-step AI research more traceable and constrained than a single
+free-form model response. This is not simply `question → LLM → answer`. The system uses:
+
+```text
+question → plan → parallel research → evidence records → validated claims
+         → deterministic aggregation → constrained synthesis → cited report
+```
+
+It keeps retrieved evidence connected to each finding, surfaces uncertainty and
+disagreement, and rejects references that were not collected during the research process.
 
 ## How it works
 
@@ -30,6 +37,25 @@ the research process.
 4. Collect and validate evidence.
 5. Combine findings.
 6. Write the final cited report.
+
+## Production verification
+
+In September 2026, exactly three controlled `quick` research jobs were attempted against
+the deployed service. These are production smoke/behavior observations—not an accuracy or
+source-quality benchmark, SLA, latency guarantee, hallucination rate, scientific dataset,
+or proof that every completed report is correct.
+
+| Run | Result | Duration | Validated output observed |
+| --- | --- | ---: | --- |
+| AI coding assistants: productivity and code quality | HTTP 200 | ~28.73 s | 26 aggregated sources, 20 evidence-backed claims, 0 failed workers |
+| Tool-using AI-agent security risks and mitigations | HTTP 200 | ~24.29 s | 8 aggregated sources, 7 evidence-backed claims, 2 failed workers |
+| Whether RAG reduces hallucinations and how to evaluate it | HTTP 422 | ~39.52 s | No final report; `research synthesis contains unsupported evidence` |
+
+The second run completed from successful validated work. Its two failed workers were
+recorded as `worker returned unsupported evidence`, demonstrating partial-failure isolation.
+The third run failed closed at final synthesis, no retry was performed, and the application
+returned no report. The bounded observation shows that unsupported grounding can be rejected;
+it does not establish the underlying cause of every rejection or measure general reliability.
 
 ## What makes it reliable
 
@@ -47,16 +73,21 @@ the research process.
 ## Technical workflow
 
 ```mermaid
-flowchart LR
-    U[Question + quick/deep] --> API[FastAPI]
+flowchart TD
+    U[Question + quick/deep] --> API[FastAPI POST /research]
     API --> P[OpenAI planner]
     P --> V[Validated 2–5 assignments]
     V --> W[Parallel in-process workers]
-    W --> T[Tavily Basic Search]
-    T --> E[Application-owned evidence IDs]
-    E --> A[Deterministic aggregation]
-    A --> S[OpenAI synthesis selects IDs]
-    S --> R[Validated cited report]
+    W --> Q[Bounded search queries]
+    Q --> T[Tavily Basic Search results]
+    T --> S[Application-owned sources]
+    S --> E[Evidence candidates + stable IDs]
+    E --> WC[Worker claim wording + evidence-ID selection]
+    WC --> A[Deterministic aggregation]
+    A --> C[Validated claim catalog]
+    C --> SY[OpenAI synthesis selects claim/evidence/uncertainty IDs]
+    SY --> R[Application resolves IDs]
+    R --> F[FinalResearchReport]
 ```
 
 The model plans assignments, authors claim wording at the worker boundary, and selects
@@ -83,6 +114,33 @@ Conflict summaries and recommendation rationale are model-authored interpretatio
 their positions and support must select known claim/evidence IDs. The service surfaces
 worker uncertainty and failed-worker metadata instead of silently discarding them.
 
+## Application versus model responsibility
+
+| Application owns | Model proposes or selects |
+| --- | --- |
+| Worker-count, search-call, source, concurrency, and request bounds | Research objective, strategy, and assignment wording |
+| Source IDs, evidence IDs, exact excerpts, and source relationships | Worker claim wording and evidence-ID selections |
+| Claim/evidence validation, deterministic aggregation, and source resolution | Synthesis claim/evidence/uncertainty selections |
+| Final factual statement/citation construction and API error mapping | Conflict summaries and recommendation interpretation where allowed |
+| Safe logging boundaries | No control over logging fields, tools, or execution budgets |
+
+Models do not create arbitrary source or citation records. They operate inside
+application-owned Pydantic contracts and bounded provider interfaces.
+
+## Grounding is not truth
+
+Application-owned IDs prove provenance and structural relationships: where an excerpt
+came from, which evidence a worker selected, whether a citation belongs to a known claim,
+and whether the final report stayed inside the collected research set. They do not prove
+source authority, independence, freshness, factual truth, semantic entailment,
+completeness, or absence of bias.
+
+Production searches can return original research, independent publications,
+vendor/company analysis, and promotional material. The backend does not implement a
+formal source-authority rank, primary/secondary classification, freshness score,
+independence score, source-quality score, or citation-quality score. Tavily ordering and
+deterministic aggregation must not be interpreted as trust ranking.
+
 ## Evaluation and trust boundaries
 
 | Invariant | Enforcement | Offline coverage |
@@ -93,11 +151,13 @@ worker uncertainty and failed-worker metadata instead of silently discarding the
 | Partial failure is explicit | Ordered worker outcome records | One failure continues; all failures stop |
 | Provider calls are bounded | Two searches/worker; one analysis/worker; one synthesis | Mock call-count and timeout tests |
 
-The suite currently contains 154 offline tests. Controlled provider checks were performed
-during implementation, but the repository does not yet contain a repeatable scored live
-evaluation harness. Source relevance, authority, freshness, and claim-level semantic
+The suite currently contains 154 offline tests. Controlled provider and production checks
+have been performed, but the repository does not yet contain a repeatable scored live
+research-quality harness. Source relevance, authority, freshness, and claim-level semantic
 entailment still require stronger evaluation; strict ID grounding proves provenance, not
-that every authored claim perfectly follows from its excerpt. See
+that every authored claim perfectly follows from its excerpt. Grounding-validation failures
+are useful evaluation signals, but do not by themselves identify whether the model, prompt,
+source material, ID handling, or aggregation caused the rejection. See
 [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## Safety and operational controls
@@ -117,11 +177,24 @@ database, durable job state, distributed rate limit, or background queue. FastAP
 intermediate phase endpoints and OpenAPI UI remain available in v1; changing that public
 surface is a future hardening decision, not a packaging change.
 
+## Frontend and backend boundary
+
+This repository owns the FastAPI backend, provider adapters, orchestration, evidence
+contracts, aggregation, and final report API. The separate `marvinjb.dev` repository owns
+the portfolio presentation, including user-facing sections such as Answer, What the
+Research Found, Key Findings, Practical Takeaway, Research Confidence, Sources Used in
+This Report, and Research Details. It also owns presentation-level source ordering. A
+frontend display order based on citation presentation is not a backend source-authority
+ranking. Repeated citation occurrences can overstate apparent importance when one source
+is cited several times for the same displayed claim; distinct-claim coverage and raw
+citation frequency are different measurements.
+
 ## Deployment
 
 The service runs behind Nginx on an Ubuntu VPS and the browser calls
-`https://api.marvinjb.dev/research`. The container listens on `0.0.0.0:8000`; the operator
-chooses the loopback host port. Nginx needs a 300-second upstream timeout for synchronous
+`https://api.marvinjb.dev/research`. The container listens on `0.0.0.0:8000`; the verified
+VPS deployment maps it to `127.0.0.1:8001`. One Uvicorn process is required by the current
+process-local limiter design. Nginx needs a 300-second upstream timeout for synchronous
 research requests. Full runbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Technology
@@ -186,16 +259,22 @@ implemented.
 ## Limitations
 
 - Source selection relies on bounded Tavily snippets; there is no full-document retrieval,
-  authority ranking, freshness scoring, or link-health verification.
+  authority ranking, primary/secondary classification, freshness scoring, independence
+  scoring, citation-quality scoring, or link-health verification.
 - Claim wording is authored by the worker model. Exact evidence provenance is enforced,
   but semantic entailment is not mechanically proven.
 - `quick`/`deep` influences the planner prompt; it does not impose different numeric search
   budgets or end-to-end deadlines.
 - Requests are synchronous and in memory. Restarts lose in-flight work.
 - Process-local rate limiting assumes one application process and does not provide fair
-  per-user quotas.
-- No RAG, vector database, persistence, long-term memory, queue, recursive agents, or
-  automatic retries are present.
+  per-user quotas or distributed coordination.
+- There is no persistence, database, Redis, durable job queue, background worker system,
+  automatic retry, or replacement worker.
+- No RAG, embeddings, vector database, long-term memory, or recursive agents are present.
+- Strict worker or synthesis grounding validation can reject a request instead of returning
+  a report.
+- Availability, latency, and research coverage depend on OpenAI, Tavily, and the snippets
+  returned for a particular question.
 
 ## Documentation
 

@@ -10,7 +10,11 @@ store VPS-specific Nginx configuration or credentials in the repository.
 - Uvicorn listens on `0.0.0.0:8000` inside the container.
 - Provider keys and settings are injected at runtime from a root-controlled environment
   file; `.env` never enters Git or the image.
-- The operator binds a non-conflicting loopback host port and routes Nginx to it.
+- The verified VPS deployment binds `127.0.0.1:8001` to container port `8000` and routes
+  public HTTPS requests through Nginx. The container port remains the application contract;
+  the host port is deployment-specific.
+- Run one Uvicorn process/worker. The current request budget and concurrency limiter are
+  process-local and do not coordinate across multiple processes or replicas.
 - `/health` is the process/container liveness check.
 - Nginx must allow a 300-second upstream response timeout for `/research`.
 
@@ -34,6 +38,11 @@ concurrency of 2. Never print the resulting environment file in deployment logs.
    portfolio request only when provider use is explicitly authorized.
 9. Inspect safe JSON telemetry for request correlation and failures without research data.
 
+Production research calls are not routine deployment checks. They require explicit provider
+authorization and a bounded question. The September 2026 three-run observation is recorded
+in [EVALUATION.md](EVALUATION.md); it must not be repeated automatically during release or
+described as a quality benchmark.
+
 The current process is operator-run rather than automated continuous deployment. CI proves
 the offline tests and image build; it does not deploy.
 
@@ -53,6 +62,7 @@ container port -> 8000
 CORS origin -> https://marvinjb.dev
 request window -> 10 accepted / 600 seconds (default)
 concurrent provider requests -> 2 (default)
+Uvicorn processes/workers -> 1
 ```
 
 Telemetry events include `http_request_completed`, `research_plan_completed`,
@@ -68,5 +78,7 @@ implemented; use container/runtime log retention appropriate to the host.
 - `502`: inspect the safe component/error category; do not log provider response bodies.
 - `424`: inspect bounded worker failure metadata; do not automatically retry a paid call.
 - `429`: honor `Retry-After`; remember the process-local budget resets on restart.
+- Multiple Uvicorn workers/replicas: do not assume the in-memory limiter is shared; move
+  quotas to coordinated infrastructure before scaling horizontally.
 - Unhealthy container: check port binding and exact `/health` payload before changing
   provider settings.

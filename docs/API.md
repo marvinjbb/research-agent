@@ -25,9 +25,16 @@ defaults to `quick`. Callers cannot specify worker count. The response is a
 summary, key findings, important claims, conflicts, uncertainties, recommendations,
 evidence claims, sources, and failed-worker summaries.
 
-Expected failures: `424` all workers failed/no successful workers; `502` planner or
-synthesis provider failure/invalid workflow structure; `503` missing provider
-configuration; `504` planning or synthesis timeout.
+One or more workers may fail while the request still succeeds. In that case synthesis uses
+only successful validated worker results and the report exposes bounded failed-worker
+metadata. If every worker fails, execution stops before synthesis.
+
+Expected failures: `422` final synthesis selected unsupported or unknown claim, evidence,
+or uncertainty IDs, or final grounded-report relationships failed validation;
+`424` all workers failed/no successful workers; `429` process-local request or concurrency
+limit; `502` planner or synthesis provider failure/invalid workflow structure; `503`
+missing provider configuration; `504` planning or synthesis timeout. A rejected final
+synthesis returns no report and is not automatically retried.
 
 ## Health
 
@@ -65,6 +72,10 @@ Accepts a validated `ResearchPlan`; executes its fixed assignments concurrently;
 an ordered `ResearchExecutionResult` with success/failure outcome per worker. It does not
 synthesize. Returns `424` with bounded worker failure metadata if every worker fails.
 
+Known per-worker failures include timeout, no usable sources, unsupported evidence,
+malformed structured result, and provider failure. Each assignment is attempted once; the
+endpoint creates neither retries nor replacement workers.
+
 ### `POST /research/synthesize`
 
 Accepts a validated `ResearchExecutionResult`; aggregates only successful worker evidence
@@ -72,6 +83,11 @@ and returns a `FinalResearchReport`. It performs no search and executes no worke
 
 Failures: `422` unsupported synthesis evidence, `424` no successful workers, `502`
 provider failure, `503` missing configuration, `504` timeout.
+
+The `422` response means the structured synthesis could not be resolved into a valid report
+using the supplied claim, evidence, source, and uncertainty set. It does not, by itself,
+diagnose whether the cause was model selection, prompt behavior, source material, ID
+handling, aggregation, or final report relationship validation.
 
 ## CORS and timeouts
 

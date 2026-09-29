@@ -60,18 +60,37 @@ driven by measured reliability, quality, and traffic needs rather than phase lab
 - Add bounded single-container request and concurrency cost controls
 - Document the reverse-proxy timeout requirement without adding VPS configuration
 
+## Controlled production behavior verification (complete)
+
+- Exercise three bounded `quick` research questions against the deployed workflow.
+- Confirm one complete report with no worker failures.
+- Confirm partial worker failure can preserve successful validated work and failed-worker
+  metadata.
+- Confirm unsupported final synthesis grounding fails closed with HTTP 422 and no report.
+- Record the observations as smoke/behavior evidence, not an accuracy, source-quality,
+  latency, or reliability benchmark.
+
 ## Highest-value next work
 
 - Add a repeatable, scored provider evaluation dataset and harness.
-- Measure search relevance, source authority/freshness, semantic claim support, conflict
-  recall, latency, and per-request cost.
+- Measure search relevance, source authority, freshness, source diversity/independence,
+  semantic claim support, citation completeness, conflict recall, latency, per-request
+  cost, and validation/rejection outcomes.
+- Evaluate source-type classification and authority metadata without presenting search
+  order or citation frequency as trust ranking.
+- Compare raw citation occurrence counts with distinct-claim coverage where source
+  prominence is presented.
 - Add a bounded overall workflow deadline and usage telemetry.
 - Evaluate full-document retrieval before expanding source or worker budgets.
+- Improve URL canonicalization only against measured duplicate cases.
+- Consider a bounded retry policy only after classifying which failures are safe and useful
+  to retry; do not retry unsupported grounding automatically by default.
 - Decide whether to restrict intermediate phase endpoints and OpenAPI in production.
 - Move to durable asynchronous jobs and shared quotas only if real traffic requires them.
 
 ## Explicitly deferred
 
-Persistence, RAG, vector storage, long-term memory, repository-owned Nginx configuration,
-automatic retries, and distributed deployment infrastructure remain outside the current
-scope. They should be added only when a demonstrated requirement justifies them.
+Persistence, RAG, embeddings, vector storage, long-term memory, repository-owned Nginx
+configuration, automatic retries/replacement workers, and distributed deployment
+infrastructure remain outside the current scope. They should be added only when a
+demonstrated requirement justifies them.

@@ -217,3 +217,33 @@ correlation.
 Research questions, prompts, source/evidence content, provider response bodies, cookies,
 sensitive headers, and credentials are excluded by design. Telemetry is process output,
 not a persistent audit store; metrics and distributed traces remain future work.
+
+## ADR-020: Fail closed at unsupported grounding boundaries
+
+**Status:** Approved
+
+Worker and synthesis outputs must resolve exactly against application-owned records. A
+worker that selects unknown or unsupported evidence becomes a typed failed-worker outcome;
+other successful workers may continue. If every worker fails, execution stops. If final
+synthesis selects an unknown claim/evidence/uncertainty ID or an evidence relationship that
+does not belong to its selected claim, the request returns HTTP 422 and no report.
+
+The system does not relax ID comparison, use fuzzy citation matching, create replacement
+workers, or automatically retry a grounding rejection. This preserves the evidence
+contract and makes partial failure explicit. A rejection is an evaluation signal, not a
+complete root-cause diagnosis: model selection, prompt behavior, source material,
+application ID handling, and aggregation require separate investigation.
+
+## ADR-021: Provenance validation is separate from source authority
+
+**Status:** Approved
+
+Application-owned source, evidence, claim, and uncertainty IDs prove origin and structural
+relationships inside the bounded retrieved set. They do not establish source authority,
+independence, freshness, factual truth, semantic entailment, completeness, or freedom from
+bias.
+
+Tavily ordering and deterministic aggregation are not authority ranking. The backend will
+not label sources as trusted, best, or most reliable without a defined classification and
+evaluation method. Presentation-level source ordering in the separate portfolio frontend
+must remain distinct from backend grounding guarantees.

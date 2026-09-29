@@ -17,15 +17,16 @@ flowchart TD
     Plan --> Exec[ParallelResearchOrchestrator]
     Exec --> W1[SingleResearchWorker]
     Exec --> WN[SingleResearchWorker]
-    W1 & WN --> Search[SearchProvider / Tavily Basic]
-    Search --> Sources[At most 10 unique sources per worker]
-    Sources --> Candidates[Immutable evidence candidates]
-    Candidates --> Analyst[WorkerResearchProvider / OpenAI]
-    Analyst --> Results[Grounded WorkerResults]
+    W1 & WN --> Queries[Bounded deterministic search queries]
+    Queries --> Search[SearchProvider / Tavily Basic]
+    Search --> Sources[Application-owned sources: at most 10 per worker]
+    Sources --> Candidates[Immutable evidence candidates + stable IDs]
+    Candidates --> Analyst[OpenAI selects evidence IDs and authors claims]
+    Analyst --> Results[Validated WorkerResults]
     Results --> Aggregate[Deterministic EvidenceAggregator]
-    Aggregate --> Bundle[Claims + evidence + uncertainty + provenance]
-    Bundle --> Synth[ResearchSynthesizer / OpenAI]
-    Synth --> Selection[Claim/evidence/uncertainty ID selections]
+    Aggregate --> Bundle[Validated claim catalog + evidence + uncertainty + provenance]
+    Bundle --> Synth[OpenAI synthesis selection]
+    Synth --> Selection[Claim / evidence / uncertainty ID selections]
     Selection --> Resolve[Application resolution + validation]
     Resolve --> Report[FinalResearchReport]
 ```
@@ -43,6 +44,9 @@ flowchart TD
 This separation prevents the model from creating source records or reproducing mutable
 evidence text. It does not prove semantic entailment between every worker-authored claim
 and selected excerpt; that remains an evaluation target.
+
+The application also owns request limits, API error mapping, request IDs, and the telemetry
+allowlist. Models cannot expand tool access, worker count, search budget, or output schema.
 
 ## Core components
 
@@ -68,6 +72,26 @@ workflow with HTTP 424. Planning and synthesis provider failures map to 502, tim
 programming errors propagate rather than being mislabeled as provider errors. No layer
 automatically retries or creates replacement workers.
 
+A worker grounding failure is isolated to that assignment when another worker succeeds.
+The execution result retains safe failure metadata and synthesis receives only successful
+validated results. A final synthesis grounding failure is different: the application
+cannot construct a valid `FinalResearchReport`, so the whole request returns 422 and no
+report is emitted. This is fail-closed validation, not evidence that every rejection has
+the same root cause.
+
+## Evidence and source-quality boundary
+
+The search adapter returns bounded Tavily snippets rather than full documents. Application
+IDs establish provenance and exact relationships inside the retrieved set, but do not
+establish source authority, independence, freshness, completeness, factual truth, or
+semantic entailment. The backend has no formal authority ranking, primary/secondary
+classification, source-quality score, freshness score, or citation-quality score.
+
+The aggregator preserves first-seen source order while deduplicating exact URL strings. It
+does not rank trustworthiness. Presentation-level source ordering in the separate portfolio
+frontend is not part of this backend architecture; raw repeated citation counts and the
+number of distinct claims supported by a source are different measures.
+
 ## Runtime and trust boundary
 
 The browser may call the service only from configured CORS origin `https://marvinjb.dev`.
@@ -89,7 +113,7 @@ evidence and source content, cookies, headers, and credentials are excluded.
 - No persistence, database, background jobs, queue, RAG, embeddings, vector store,
   long-term memory, recursive spawning, retries, or replacement workers.
 - No full-page content fetch, semantic deduplication, source authority scoring, or
-  guaranteed conflict recall.
+  guaranteed conflict recall or semantic entailment validation.
 - No distributed rate limiting or horizontal coordination.
 - OpenAPI and intermediate phase endpoints remain part of the current API surface.
 - The user interface lives in the separate `marvinjb.dev` repository; this repository owns
@@ -100,5 +124,6 @@ evidence and source content, cookies, headers, and credentials are excluded.
 For higher traffic, first introduce durable job state and an explicit asynchronous job
 contract. Then move cost controls to shared infrastructure, add per-client quotas, enforce
 an overall deadline, and separate work execution only when measurements justify it. Source
-quality should improve through document retrieval and evaluation before adding embeddings
-or semantic clustering merely for architectural appearance.
+quality work should begin with labeled evaluation, authority/freshness metadata, and
+full-document retrieval where justified—not embeddings or semantic clustering merely for
+architectural appearance.
